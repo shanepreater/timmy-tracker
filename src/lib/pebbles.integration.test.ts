@@ -17,8 +17,11 @@ function testPebble(suffix: string, overrides: Partial<Parameters<typeof prisma.
 
 describe("getVerifiedPebbles (integration)", () => {
   beforeAll(async () => {
-    // Guards against a stale row from a previous crashed run causing a
-    // primary-key conflict here instead of a clean, deterministic state.
+    // Clean before, not after: this guarantees a known starting state
+    // regardless of how the previous run ended (a stale row would
+    // otherwise cause a primary-key conflict here instead), and it means
+    // a failure/crash leaves its data in place for post-mortem debugging
+    // instead of a passing afterAll wiping the evidence.
     await prisma.pebble.deleteMany({
       where: { id: { startsWith: TEST_ID_PREFIX } },
     });
@@ -39,9 +42,6 @@ describe("getVerifiedPebbles (integration)", () => {
   });
 
   afterAll(async () => {
-    await prisma.pebble.deleteMany({
-      where: { id: { startsWith: TEST_ID_PREFIX } },
-    });
     await prisma.$disconnect();
   });
 
