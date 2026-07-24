@@ -8,7 +8,7 @@ import {
   InfoWindow,
 } from "@vis.gl/react-google-maps";
 import { featureFlags } from "@/lib/feature-flags";
-import type { VerifiedPebble } from "@/lib/pebbles";
+import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -52,7 +52,7 @@ export function Map({ pebbles }: MapProps) {
           <Marker
             key={pebble.id}
             position={{ lat: pebble.latitude, lng: pebble.longitude }}
-            title={`${pebble.depositedBy} — ${pebble.depositedAt.toDateString()}`}
+            title={`${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`}
             onClick={() => setSelectedPebbleId(pebble.id)}
           />
         ))}
@@ -64,7 +64,7 @@ export function Map({ pebbles }: MapProps) {
           >
             <div className="flex flex-col gap-1 text-sm text-zinc-900">
               <span className="font-semibold">{selectedPebble.depositedBy}</span>
-              <span>{selectedPebble.depositedAt.toDateString()}</span>
+              <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
             </div>
           </InfoWindow>
         )}

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import type { VerifiedPebble } from "@/lib/pebbles";
+import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 
 vi.mock("@vis.gl/react-google-maps", () => ({
   APIProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -81,7 +81,7 @@ describe("Map", () => {
 
       const dialog = screen.getByRole("dialog");
       expect(dialog).toHaveTextContent("Sarah");
-      expect(dialog).toHaveTextContent(pebble.depositedAt.toDateString());
+      expect(dialog).toHaveTextContent(formatPebbleDate(pebble.depositedAt));
     });
 
     it("closes the info window when its close control is clicked", async () => {
