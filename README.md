@@ -63,11 +63,13 @@ your local Postgres.
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and
    create (or pick) a project.
-2. **APIs & Services → Library** → enable **Maps JavaScript API**.
+2. **APIs & Services → Library** → enable **Maps JavaScript API** and
+   **Geocoding API** (the latter powers the "look up a place" convenience
+   on the submit-a-pebble form — same key, no separate credential).
 3. **APIs & Services → Credentials → Create credentials → API key**.
 4. Restrict the key (Credentials → your key → *Application restrictions*:
-   HTTP referrers; *API restrictions*: Maps JavaScript API only) before
-   using it anywhere but `localhost`.
+   HTTP referrers; *API restrictions*: Maps JavaScript API + Geocoding
+   API) before using it anywhere but `localhost`.
 5. Paste the key into `.env.local` and set
    `NEXT_PUBLIC_FEATURE_MAP="true"` to turn the map on.
 
@@ -96,10 +98,11 @@ npm run test:e2e:map     # Playwright — real Google Maps, needs your .env.loca
 npm run build            # Production build
 ```
 
-`npm run test:e2e:map` exercises the actual map/marker rendering against
-the real Maps API, so it's not run in CI (see `docs/design.md`) — it
-skips itself automatically if `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't
-set in `.env.local`.
+`npm run test:e2e:map` exercises real Google services — map/marker
+rendering and the submit form's place-name lookup (Geocoding API) — so
+it's not run in CI (see `docs/design.md`). Each spec skips itself
+automatically if `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't set in
+`.env.local`.
 
 CI also lints `scripts/*.sh` with [shellcheck](https://www.shellcheck.net/)
 and the workflow files under `.github/workflows/` with

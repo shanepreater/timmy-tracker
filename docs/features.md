@@ -40,10 +40,14 @@ In order to be initially useful the system needs to provide the following:
   the map flag above is on.
 * Submit a pebble — ✅ `/submit` form (lat/long, deposited by, date),
   behind `NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE`. Always lands as `PENDING`;
-  doesn't show up on the map until an admin verifies it.
+  doesn't show up on the map until an admin verifies it. Also supports
+  looking up a place name to fill in the coordinates (Geocoding API,
+  same key as the map) — submitters don't need to know exact lat/long.
 * Simple admin section (behind SSO log in)
   * Add a pebble location using lat / long
-  * Add a pebble using location name to resolve to lat / long 
+  * Add a pebble using location name to resolve to lat / long — the
+    lookup piece already exists (`PlaceLookup` in `SubmitPebbleForm`)
+    and can be reused here once the admin UI itself is built
   * Move a pebble
   * Accept / verify submitted pebble
 
