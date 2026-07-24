@@ -52,24 +52,37 @@ Acceptance criteria:
   renders with live API key in deployed environment.
 * Smoke test config in `output/configs/` is current and reproducible.
 
-### [ ] User access restrictions
+### [x] User access restrictions
 Design brief:
 Implement invite-only access from `docs/design-access-control.md` with
 Google sign-in, whitelist enforcement, request-access flow, and admin
 management of access.
 
 Acceptance criteria:
-* With `FEATURE_AUTH_GATE=true`, unauthenticated users are redirected to
-  sign-in for protected routes.
-* Signed-in users not in `AllowedUser` cannot access app content and are
-  shown a request-access screen.
-* Request-access action is idempotent for pending requests per email.
-* Admin users can approve/deny requests and directly manage allowlisted
-  users (add/remove/toggle admin).
-* Non-admin users cannot access admin routes or admin actions.
-* Seed data guarantees at least one bootstrap admin account.
-* Automated tests cover gate behavior, whitelist checks, and admin-only
-  actions.
+* [x] With `FEATURE_AUTH_GATE=true`, unauthenticated users are redirected
+  to sign-in for protected routes.
+* [x] Signed-in users not in `AllowedUser` cannot access app content and
+  are shown a request-access screen.
+* [x] Request-access action is idempotent for pending requests per email
+  (DB-level partial unique index, not just an app-side check).
+* [x] Admin users can approve/deny requests and directly manage
+  allowlisted users (add/remove/toggle admin) at `/admin`.
+* [x] Non-admin users cannot access admin routes or admin actions
+  (`requireAdmin()`, checked independently in every admin action).
+* [x] Seed data guarantees at least one bootstrap admin account
+  (`shane.preater@gmail.com`).
+* [x] Automated tests cover gate behavior, whitelist checks, and
+  admin-only actions (100 unit/component tests + integration tests
+  against real Postgres, including a real concurrent-request race test
+  proving the DB-level dedupe).
+
+Delivered behind `FEATURE_AUTH_GATE` (whole-app gate) and `FEATURE_ADMIN`
+(the `/admin` route itself) — both default off. Verified against the
+real Google OAuth app (not just mocks): unauthenticated requests to `/`,
+`/submit`, and `/admin` all correctly redirect to `/api/auth/signin`
+with the right `callbackUrl`, and the real Google sign-in page renders.
+Not yet covered: admin pebble management (add/move/verify) — that's the
+separate "MVP admin section" entry below.
 
 ### [ ] MVP admin section
 Design brief:
@@ -148,11 +161,17 @@ Acceptance criteria:
 ## Domain data contract: Pebble
 
 Each pebble currently carries:
-* Latitude/longitude location.
-* Deposited-by display name.
+* Latitude/longitude location (DB `CHECK` constraints enforce valid
+  ranges, alongside app-level validation).
+* Deposited-by display name (editable).
+* Immutable submitter email (`submitterEmail`, nullable — set when
+  `FEATURE_AUTH_GATE` is on and the submitter is signed in; `null` for
+  pre-auth submissions and seed/admin-added data).
 * Deposited date.
 * Moderation status (`PENDING`/`VERIFIED`).
 
 Implementation note:
-As access control is implemented, keep the display name editable but also
-store immutable submitter identity for auditability.
+`submitterEmail` is captured from the session at submission time,
+independent of whatever the submitter edits the `depositedBy` display
+name to — see `docs/design-access-control.md`'s "Interaction with
+existing features".

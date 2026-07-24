@@ -86,13 +86,18 @@ CLAUDE.md's workflow.
 ```
 src/
   app/                # Next.js App Router pages
-    layout.tsx
+    layout.tsx        # Wraps children in AuthGate
     page.tsx          # Home: intro + map
+    admin/            # Manage-users UI + actions, gated by requireAdmin()
   components/
     Map.tsx            # Google Maps embed, gated by featureFlags.map
+    AuthGate.tsx        # Whitelist check + RequestAccess/AppHeader (docs/design-access-control.md)
   lib/
     feature-flags.ts
     prisma.ts          # Prisma client singleton
+    auth-guards.ts      # requireAllowedUser()/requireAdmin(), used by every mutating action
+  proxy.ts             # Edge auth check (formerly middleware.ts, renamed in Next.js 16)
+  auth.ts              # Auth.js (NextAuth) config
 prisma/
   schema.prisma
 e2e/

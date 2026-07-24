@@ -1,7 +1,8 @@
 # Design: Access control (invite-only whitelist)
 
-Status: proposed (revised after review — see "Review findings" at the
-bottom for what changed and why)
+Status: implemented (both feature flags default off — see
+`docs/features.md`'s "User access restrictions" entry for what's
+delivered vs. outstanding)
 Related feature: "Access control" in `docs/features.md` — supersedes the
 inline auth notes on the MVP's "Simple admin section" bullet, which
 this document replaces with a fuller design.
@@ -26,7 +27,7 @@ auth mechanism needed for the submit form specifically.
 | Concern | Choice | Why |
 |---|---|---|
 | Auth provider | Auth.js (NextAuth v5) + Google OAuth, JWT session (no Prisma adapter) | Already the planned mechanism (`docs/design.md`). JWT-only keeps Auth.js's own `Account`/`Session`/`User` tables out of our schema entirely — the session cookie only proves *which* Google account signed in; whitelist/admin status is our own lookup, decoupled from Auth.js's data model. |
-| Where the gate runs | Split across two runtimes: `middleware.ts` (Edge, JWT-only check → redirect to sign-in if unauthenticated) + root layout (Node, Server Component → whitelist DB check → renders the app or a "request access" page) | Prisma needs the Node.js runtime; Next.js middleware runs on Edge by default and can't safely make a DB call. Splitting "are you signed in" (cheap, Edge-safe) from "are you allowed in" (needs the DB) avoids that mismatch. |
+| Where the gate runs | Split across two runtimes: `proxy.ts` (Edge, JWT-only check → redirect to sign-in if unauthenticated) + root layout (Node, Server Component → whitelist DB check → renders the app or a "request access" page) | Prisma needs the Node.js runtime; Next.js middleware runs on Edge by default and can't safely make a DB call. Splitting "are you signed in" (cheap, Edge-safe) from "are you allowed in" (needs the DB) avoids that mismatch. Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts` (same API, same Edge runtime) — that's why it's not called `middleware.ts` here. |
 | Whitelist storage | New `AllowedUser` table (email, name, isAdmin, createdAt) | A DB table (not an env var) so admins can add/remove people themselves through a UI, per the ask — no redeploy needed to let someone in. |
 | Access requests | New `AccessRequest` table (email, name, status, requestedAt, resolvedAt, resolvedByEmail, note) | Self-service: an authenticated-but-not-whitelisted visitor gets a "Request access" button instead of a dead end. Admins approve/deny from the admin UI; approving creates the `AllowedUser` row. |
 | Feature flag | `FEATURE_AUTH_GATE` (server-only, no `NEXT_PUBLIC_` prefix) | The gate is enforced entirely server-side (middleware + layout), so the client never needs to know its state. Off by default so the gate can be built and tested without locking anyone out mid-development — see "Fail-open risk" below for how we avoid this biting us in production. |
@@ -113,7 +114,7 @@ same request at the same moment can't both succeed.
 
 ## Flow
 
-1. Visit any page → `middleware.ts` checks for a valid session (JWT
+1. Visit any page → `proxy.ts` checks for a valid session (JWT
    only, no DB). No session → redirect to sign-in.
 2. Signed in (any Google account) → root layout checks `AllowedUser`
    by normalized email:
@@ -156,7 +157,7 @@ export async function requireAdmin(): Promise<AllowedUser> { /* throws if not is
 * Every admin action (verify/move/add pebble, approve/deny request,
   manage `AllowedUser`) → `requireAdmin()`.
 
-`middleware.ts`'s matcher applies to all routes **except**: Auth.js's
+`proxy.ts`'s matcher applies to all routes **except**: Auth.js's
 own routes (`/api/auth/*`), the sign-in page itself (to avoid a
 redirect loop), and static assets (`_next/*`, `favicon.ico`, etc.).
 
