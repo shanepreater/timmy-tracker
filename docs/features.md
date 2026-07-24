@@ -61,3 +61,5 @@ Each pebble has the following associated data:
 ### Fly-by mode
 Use the dates to trace a fly-by across the map highlighting the places in chronological order.
 
+### What Three words
+Allow the user to provide the pebble location using the popular What three words approach.
