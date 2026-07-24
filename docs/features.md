@@ -31,8 +31,10 @@ Auth.js/Google admin SSO from the MVP feature below.
 ### [] MVP
 In order to be initially useful the system needs to provide the following:
 * Intro section about Timmy and the website's intent. ✅
-* Map of the world embedded into the app — scaffolded, stays behind
-  `NEXT_PUBLIC_FEATURE_MAP` until a real Maps API key is provisioned.
+* Map of the world embedded into the app — ✅ scaffolded and working
+  (verified end-to-end with a real API key + Playwright), stays behind
+  `NEXT_PUBLIC_FEATURE_MAP` until deployed. Clicking a pebble marker
+  shows who deposited it and when.
 * Series of pebble locations which is retrieved from some kind of store —
   ✅ `getVerifiedPebbles()` (Prisma/Postgres) renders real markers once
   the map flag above is on.
@@ -56,4 +58,6 @@ Each pebble has the following associated data:
 * Deposited by (text field)
 * Deposited date
 
+### Fly-by mode
+Use the dates to trace a fly-by across the map highlighting the places in chronological order.
 

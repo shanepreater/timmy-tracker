@@ -10,6 +10,22 @@ export type VerifiedPebble = {
 };
 
 /**
+ * depositedAt is a calendar date with no time-of-day meaning, and it's
+ * parsed from "YYYY-MM-DD" strings (form input, seed literals), which
+ * Date parses as UTC midnight. Formatting with UTC getters here — rather
+ * than a local-time method like toDateString() — keeps the displayed day
+ * the same for every viewer regardless of their browser's timezone.
+ */
+export function formatPebbleDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
  * Pebbles shown on the public map — only ones an admin has verified.
  * Submissions sit as PENDING (see docs/features.md's MVP admin flow)
  * until then.

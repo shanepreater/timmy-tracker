@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import {
   APIProvider,
   Map as GoogleMap,
   Marker,
+  InfoWindow,
 } from "@vis.gl/react-google-maps";
 import { featureFlags } from "@/lib/feature-flags";
-import type { VerifiedPebble } from "@/lib/pebbles";
+import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -22,6 +24,7 @@ type MapProps = {
  */
 export function Map({ pebbles }: MapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [selectedPebbleId, setSelectedPebbleId] = useState<string | null>(null);
 
   if (!featureFlags.map || !apiKey) {
     return (
@@ -34,10 +37,12 @@ export function Map({ pebbles }: MapProps) {
     );
   }
 
+  const selectedPebble = pebbles.find((pebble) => pebble.id === selectedPebbleId) ?? null;
+
   return (
     <APIProvider apiKey={apiKey}>
       <GoogleMap
-        style={{ width: "100%", height: "24rem", borderRadius: "0.5rem" }}
+        style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
         defaultCenter={DEFAULT_CENTER}
         defaultZoom={DEFAULT_ZOOM}
         gestureHandling="greedy"
@@ -47,9 +52,22 @@ export function Map({ pebbles }: MapProps) {
           <Marker
             key={pebble.id}
             position={{ lat: pebble.latitude, lng: pebble.longitude }}
-            title={`${pebble.depositedBy} — ${pebble.depositedAt.toDateString()}`}
+            title={`${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`}
+            onClick={() => setSelectedPebbleId(pebble.id)}
           />
         ))}
+
+        {selectedPebble && (
+          <InfoWindow
+            position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
+            onCloseClick={() => setSelectedPebbleId(null)}
+          >
+            <div className="flex flex-col gap-1 text-sm text-zinc-900">
+              <span className="font-semibold">{selectedPebble.depositedBy}</span>
+              <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
+            </div>
+          </InfoWindow>
+        )}
       </GoogleMap>
     </APIProvider>
   );
