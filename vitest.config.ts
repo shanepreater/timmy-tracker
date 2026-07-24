@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    exclude: [...configDefaults.exclude, "**/*.integration.test.ts"],
+    exclude: [...configDefaults.exclude, "**/*.integration.test.ts", "e2e/**"],
   },
   resolve: {
     alias: {
