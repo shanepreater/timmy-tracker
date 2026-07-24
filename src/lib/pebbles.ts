@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { SubmitPebbleInput } from "@/lib/pebble-validation";
 
 export type VerifiedPebble = {
   id: string;
@@ -39,6 +40,22 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
       longitude: true,
       depositedBy: true,
       depositedAt: true,
+    },
+  });
+}
+
+/**
+ * Public submissions always land as PENDING — an admin has to verify one
+ * before it shows up in getVerifiedPebbles().
+ */
+export async function submitPebble(input: SubmitPebbleInput): Promise<void> {
+  await prisma.pebble.create({
+    data: {
+      latitude: input.latitude,
+      longitude: input.longitude,
+      depositedBy: input.depositedBy,
+      depositedAt: input.depositedAt,
+      status: "PENDING",
     },
   });
 }

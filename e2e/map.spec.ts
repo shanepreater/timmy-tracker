@@ -14,13 +14,13 @@ test.skip(!apiKey, "requires a real NEXT_PUBLIC_GOOGLE_MAPS_API_KEY — local on
 test("clicking a pebble marker shows who deposited it and when", async ({ page }) => {
   await page.goto("/");
 
-  const marker = page.getByRole("button", { name: /London/ });
+  const marker = page.getByRole("button", { name: /Sarah/ });
   await marker.waitFor({ state: "visible", timeout: 15_000 });
   await marker.click();
 
   const infoWindow = page.locator(".gm-style-iw");
   await expect(infoWindow).toBeVisible();
-  await expect(infoWindow).toContainText("London");
+  await expect(infoWindow).toContainText("Sarah");
 
   await page.screenshot({ path: "test-results/map-info-window.png" });
 });

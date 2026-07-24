@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Map } from "@/components/Map";
 import { featureFlags } from "@/lib/feature-flags";
 import { getVerifiedPebbles } from "@/lib/pebbles";
@@ -24,6 +25,11 @@ export default async function Home() {
         </p>
       </div>
       <Map pebbles={pebbles} />
+      {featureFlags.submitPebble && (
+        <Link href="/submit" className="self-start underline">
+          Submit a pebble
+        </Link>
+      )}
     </main>
   );
 }
