@@ -1,5 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "");
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -8,6 +13,7 @@ afterEach(() => {
 
 describe("Map", () => {
   it("shows a placeholder when the map feature flag is off", async () => {
+    vi.resetModules();
     const { Map } = await import("./Map");
     render(<Map />);
 

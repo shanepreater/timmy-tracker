@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ENV_KEYS = [
   "NEXT_PUBLIC_FEATURE_MAP",
@@ -13,10 +13,14 @@ async function loadFlags() {
 }
 
 describe("featureFlags", () => {
-  afterEach(() => {
+  beforeEach(() => {
     for (const key of ENV_KEYS) {
-      delete process.env[key];
+      vi.stubEnv(key, "");
     }
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("defaults every flag to off", async () => {
@@ -30,9 +34,9 @@ describe("featureFlags", () => {
   });
 
   it("turns a flag on only when its env var is exactly 'true'", async () => {
-    process.env.NEXT_PUBLIC_FEATURE_MAP = "true";
-    process.env.NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE = "1";
-    process.env.FEATURE_ADMIN = "TRUE";
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "1");
+    vi.stubEnv("FEATURE_ADMIN", "TRUE");
 
     const featureFlags = await loadFlags();
 
