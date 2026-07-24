@@ -40,10 +40,14 @@ In order to be initially useful the system needs to provide the following:
   the map flag above is on.
 * Submit a pebble — ✅ `/submit` form (lat/long, deposited by, date),
   behind `NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE`. Always lands as `PENDING`;
-  doesn't show up on the map until an admin verifies it.
+  doesn't show up on the map until an admin verifies it. Also supports
+  looking up a place name to fill in the coordinates (Geocoding API,
+  same key as the map) — submitters don't need to know exact lat/long.
 * Simple admin section (behind SSO log in)
   * Add a pebble location using lat / long
-  * Add a pebble using location name to resolve to lat / long 
+  * Add a pebble using location name to resolve to lat / long — the
+    lookup piece already exists (`PlaceLookup` in `SubmitPebbleForm`)
+    and can be reused here once the admin UI itself is built
   * Move a pebble
   * Accept / verify submitted pebble
 
@@ -63,3 +67,12 @@ Use the dates to trace a fly-by across the map highlighting the places in chrono
 
 ### What Three words
 Allow the user to provide the pebble location using the popular What three words approach.
+
+### Associate a photo with a location
+We need to allow the user to upload a picture to associate with the location of the Pebble.
+
+### User access restrictions
+Restrict access to the app to a known group of users. This should be administered by admin users and use the google account name for the allowed users.
+
+### Design the UI better
+Update the look and feel of the app so it is not just boring HTML. Use material design as a base but do something interesting and cool with the site.
