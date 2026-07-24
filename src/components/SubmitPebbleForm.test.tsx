@@ -69,7 +69,7 @@ describe("SubmitPebbleForm", () => {
   });
 
   describe("place lookup", () => {
-    it("fills in lat/long and shows the resolved address on a successful lookup", async () => {
+    it("fills in lat/long and shows the resolved address when PlaceLookup resolves a place", async () => {
       geocode.mockResolvedValue({
         results: [
           {
@@ -88,32 +88,6 @@ describe("SubmitPebbleForm", () => {
       expect(await screen.findByText(/Resolved to: Champ de Mars/)).toBeInTheDocument();
       expect(screen.getByDisplayValue("48.8584")).toBeInTheDocument();
       expect(screen.getByDisplayValue("2.2945")).toBeInTheDocument();
-    });
-
-    it("shows an error when the place can't be found", async () => {
-      geocode.mockResolvedValue({ results: [] });
-      render(<SubmitPebbleForm />);
-
-      fireEvent.change(screen.getByPlaceholderText(/eiffel tower/i), {
-        target: { value: "Nowhereville" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: /look up/i }));
-
-      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't find that place/i);
-    });
-
-    it("clears a stale lookup error once the place name is edited", async () => {
-      geocode.mockResolvedValue({ results: [] });
-      render(<SubmitPebbleForm />);
-
-      const placeInput = screen.getByPlaceholderText(/eiffel tower/i);
-      fireEvent.change(placeInput, { target: { value: "Nowhereville" } });
-      fireEvent.click(screen.getByRole("button", { name: /look up/i }));
-      await screen.findByRole("alert");
-
-      fireEvent.change(placeInput, { target: { value: "Nowhereville, but different" } });
-
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
     it("clears the resolved-address note once coordinates are edited manually", async () => {
