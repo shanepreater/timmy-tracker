@@ -93,6 +93,21 @@ npm test         # Vitest
 npm run build    # Production build
 ```
 
+CI also lints `scripts/*.sh` with [shellcheck](https://www.shellcheck.net/)
+and the workflow files under `.github/workflows/` with
+[actionlint](https://github.com/rhysd/actionlint), and scans every push
+and PR for committed secrets with [gitleaks](https://github.com/gitleaks/gitleaks)
+— a detected secret fails the build. Run the same checks locally
+(macOS/Homebrew — all three tools are also available via most Linux
+package managers and `scoop`/`choco` on Windows):
+
+```bash
+brew install shellcheck actionlint gitleaks
+shellcheck scripts/*.sh
+actionlint
+gitleaks detect --source .
+```
+
 ## Documentation
 
 See [docs/README.md](docs/README.md) for an index of project

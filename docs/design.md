@@ -26,7 +26,7 @@ that anticipates scale this project will never see.
 | Maps | Google Maps JavaScript API via `@vis.gl/react-google-maps` | Google's own maintained React wrapper; matches the project's stated Google Maps integration. |
 | Styling | Tailwind CSS | Keeps styling co-located with markup, no separate CSS architecture to design for a site this size. |
 | Testing | Vitest + React Testing Library | Fast, ESM-native, standard pairing for Next.js App Router components. |
-| CI | GitHub Actions (lint + test on PR) | Gives us a merge gate immediately. Automated *deployment* is intentionally out of scope here — see [Deferred](#deferred). |
+| CI | GitHub Actions (lint, shellcheck, actionlint, test, build, gitleaks secrets scan on every push/PR) | Gives us a merge gate immediately. Automated *deployment* is intentionally out of scope here — see [Deferred](#deferred). |
 
 ## Data model
 
