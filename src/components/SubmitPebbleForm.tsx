@@ -29,14 +29,15 @@ function PlaceLookup({ onResolved }: PlaceLookupProps) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleLookup() {
-    if (!geocodingLibrary || !placeName.trim()) return;
+    const trimmedPlaceName = placeName.trim();
+    if (!geocodingLibrary || !trimmedPlaceName) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       const geocoder = new geocodingLibrary.Geocoder();
-      const { results } = await geocoder.geocode({ address: placeName });
+      const { results } = await geocoder.geocode({ address: trimmedPlaceName });
       const [first] = results;
 
       if (!first) {
@@ -64,7 +65,10 @@ function PlaceLookup({ onResolved }: PlaceLookupProps) {
           <input
             type="text"
             value={placeName}
-            onChange={(event) => setPlaceName(event.target.value)}
+            onChange={(event) => {
+              setPlaceName(event.target.value);
+              setError(null);
+            }}
             placeholder="e.g. Eiffel Tower, Paris"
           />
           <button

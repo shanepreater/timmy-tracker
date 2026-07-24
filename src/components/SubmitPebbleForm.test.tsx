@@ -102,6 +102,20 @@ describe("SubmitPebbleForm", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't find that place/i);
     });
 
+    it("clears a stale lookup error once the place name is edited", async () => {
+      geocode.mockResolvedValue({ results: [] });
+      render(<SubmitPebbleForm />);
+
+      const placeInput = screen.getByPlaceholderText(/eiffel tower/i);
+      fireEvent.change(placeInput, { target: { value: "Nowhereville" } });
+      fireEvent.click(screen.getByRole("button", { name: /look up/i }));
+      await screen.findByRole("alert");
+
+      fireEvent.change(placeInput, { target: { value: "Nowhereville, but different" } });
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
     it("clears the resolved-address note once coordinates are edited manually", async () => {
       geocode.mockResolvedValue({
         results: [
