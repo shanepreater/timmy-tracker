@@ -88,10 +88,18 @@ your local Postgres.
 ## Development
 
 ```bash
-npm run lint     # ESLint
-npm test         # Vitest
-npm run build    # Production build
+npm run lint             # ESLint
+npm test                 # Vitest (unit)
+npm run test:integration # Vitest against real Postgres
+npm run test:e2e         # Playwright — CI-safe, every feature flag off
+npm run test:e2e:map     # Playwright — real Google Maps, needs your .env.local key, local only
+npm run build            # Production build
 ```
+
+`npm run test:e2e:map` exercises the actual map/marker rendering against
+the real Maps API, so it's not run in CI (see `docs/design.md`) — it
+skips itself automatically if `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't
+set in `.env.local`.
 
 CI also lints `scripts/*.sh` with [shellcheck](https://www.shellcheck.net/)
 and the workflow files under `.github/workflows/` with

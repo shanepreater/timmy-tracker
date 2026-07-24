@@ -25,7 +25,7 @@ that anticipates scale this project will never see.
 | Admin auth | Auth.js (NextAuth) with Google OAuth | Satisfies the "behind SSO" requirement in the MVP feature without us storing or managing passwords. Family/friends likely already have Google accounts. |
 | Maps | Google Maps JavaScript API via `@vis.gl/react-google-maps` | Google's own maintained React wrapper; matches the project's stated Google Maps integration. |
 | Styling | Tailwind CSS | Keeps styling co-located with markup, no separate CSS architecture to design for a site this size. |
-| Testing | Vitest + React Testing Library | Fast, ESM-native, standard pairing for Next.js App Router components. |
+| Testing | Vitest + React Testing Library (unit/component), Playwright (E2E) | Fast, ESM-native, standard pairing for Next.js App Router components. Playwright's E2E suite is split in two: `playwright.config.ts` (CI-safe, every feature flag forced off, no external services) and `playwright.map.config.ts` (local-only — exercises the real Google Maps integration against your own API key, deliberately kept out of CI to avoid depending on a paid external service in the merge gate). |
 | CI | GitHub Actions (lint, shellcheck, actionlint, test, build, gitleaks secrets scan on every push/PR) | Gives us a merge gate immediately. Automated *deployment* is intentionally out of scope here — see [Deferred](#deferred). |
 
 ## Data model
@@ -90,6 +90,9 @@ src/
     prisma.ts          # Prisma client singleton
 prisma/
   schema.prisma
+e2e/
+  home.spec.ts         # CI-safe Playwright test (playwright.config.ts)
+  map.spec.ts          # Local-only, real Maps key (playwright.map.config.ts)
 scripts/
   setup.sh             # One-time local environment bootstrap
   dev.sh               # Starts local Postgres (if present) + the dev server
