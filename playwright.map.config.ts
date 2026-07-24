@@ -1,14 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Local-only: exercises the real Google Maps integration, so it needs
- * your own .env.local (NEXT_PUBLIC_FEATURE_MAP=true + a real
- * NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Not run in CI — see docs/design.md.
- * Run with `npm run test:e2e:map` (skips itself if no key is configured).
+ * Local-only: exercises real Google Maps services (map rendering,
+ * geocoding), so it needs your own .env.local (a real
+ * NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, plus NEXT_PUBLIC_FEATURE_MAP and/or
+ * NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE depending on the spec). Not run in
+ * CI — see docs/design.md. Run with `npm run test:e2e:map` (each spec
+ * skips itself if the key it needs isn't configured).
  */
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["**/map.spec.ts"],
+  testMatch: ["**/map.spec.ts", "**/submit-place-lookup.spec.ts"],
   reporter: "list",
   use: {
     baseURL: "http://localhost:3000",
