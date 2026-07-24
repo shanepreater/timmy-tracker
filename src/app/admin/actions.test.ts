@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireAdmin = vi.fn();
 const approveAccessRequest = vi.fn();
@@ -16,6 +16,11 @@ vi.mock("@/lib/allowed-users", () => ({
   setAllowedUserAdmin,
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+
+// Stubbed before the static import below, so featureFlags.admin is
+// "true" for every test in this file except the dedicated flag-off
+// block, which re-imports the module with its own stub.
+vi.stubEnv("FEATURE_ADMIN", "true");
 
 const {
   approveAccessRequestAction,
@@ -49,6 +54,38 @@ describe("admin actions require admin", () => {
       "Admin access required.",
     );
     expect(approveAccessRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin actions require FEATURE_ADMIN", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.stubEnv("FEATURE_ADMIN", "true");
+  });
+
+  it("every action throws without calling requireAdmin when the flag is off", async () => {
+    vi.stubEnv("FEATURE_ADMIN", "");
+    vi.resetModules();
+    const disabled = await import("./actions");
+
+    await expect(disabled.approveAccessRequestAction("r1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(disabled.denyAccessRequestAction("r1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(disabled.addAllowedUserAction(formData({ email: "x@example.com" }))).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(disabled.removeAllowedUserAction("u1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(
+      disabled.toggleAllowedUserAdminAction("u1", false, formData()),
+    ).rejects.toThrow("isn't enabled");
+
+    expect(requireAdmin).not.toHaveBeenCalled();
   });
 });
 
