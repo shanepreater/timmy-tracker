@@ -61,19 +61,39 @@ class RequestNotPendingError extends Error {
 }
 
 /**
- * Approve and deny both run inside a transaction: re-check the request
- * is still PENDING immediately before mutating it, so two admins acting
- * on the same request at the same moment can't both succeed.
+ * Approve and deny both run inside a transaction, and both lead with a
+ * conditional updateMany (WHERE id = ... AND status = 'PENDING') rather
+ * than a findUnique-then-update. That distinction is the whole point:
+ * a findUnique read inside a transaction doesn't stop two concurrent
+ * transactions both observing status='PENDING' and both proceeding —
+ * whichever commits last wins, silently overwriting the other's
+ * resolvedByEmail/status ("last write wins"). A conditional UPDATE
+ * doesn't have that gap: Postgres takes a row lock during the UPDATE
+ * itself, so a second concurrent UPDATE targeting the same row waits
+ * for the first to commit, then re-evaluates its WHERE clause against
+ * the now-committed status — finds it's no longer PENDING, and matches
+ * zero rows. `count === 0` is how we detect "someone else got there
+ * first" and bail out before doing anything else.
  */
 export async function approveAccessRequest(
   requestId: string,
   adminEmail: string,
 ): Promise<AccessRequest> {
   return prisma.$transaction(async (tx) => {
-    const request = await tx.accessRequest.findUnique({ where: { id: requestId } });
-    if (!request || request.status !== "PENDING") {
+    const { count } = await tx.accessRequest.updateMany({
+      where: { id: requestId, status: "PENDING" },
+      data: {
+        status: "APPROVED",
+        resolvedAt: new Date(),
+        resolvedByEmail: normalizeEmail(adminEmail),
+      },
+    });
+
+    if (count === 0) {
       throw new RequestNotPendingError();
     }
+
+    const request = await tx.accessRequest.findUniqueOrThrow({ where: { id: requestId } });
 
     await tx.allowedUser.upsert({
       where: { email: request.email },
@@ -81,14 +101,7 @@ export async function approveAccessRequest(
       create: { email: request.email, name: request.name },
     });
 
-    return tx.accessRequest.update({
-      where: { id: requestId },
-      data: {
-        status: "APPROVED",
-        resolvedAt: new Date(),
-        resolvedByEmail: normalizeEmail(adminEmail),
-      },
-    });
+    return request;
   });
 }
 
@@ -98,13 +111,8 @@ export async function denyAccessRequest(
   note?: string,
 ): Promise<AccessRequest> {
   return prisma.$transaction(async (tx) => {
-    const request = await tx.accessRequest.findUnique({ where: { id: requestId } });
-    if (!request || request.status !== "PENDING") {
-      throw new RequestNotPendingError();
-    }
-
-    return tx.accessRequest.update({
-      where: { id: requestId },
+    const { count } = await tx.accessRequest.updateMany({
+      where: { id: requestId, status: "PENDING" },
       data: {
         status: "DENIED",
         resolvedAt: new Date(),
@@ -112,5 +120,11 @@ export async function denyAccessRequest(
         note,
       },
     });
+
+    if (count === 0) {
+      throw new RequestNotPendingError();
+    }
+
+    return tx.accessRequest.findUniqueOrThrow({ where: { id: requestId } });
   });
 }

@@ -4,12 +4,12 @@ import { Prisma } from "@prisma/client";
 const findFirst = vi.fn();
 const create = vi.fn();
 const findMany = vi.fn();
-const findUnique = vi.fn();
-const update = vi.fn();
+const findUniqueOrThrow = vi.fn();
+const updateMany = vi.fn();
 const upsert = vi.fn();
 
 const mockPrisma = {
-  accessRequest: { findFirst, create, findMany, findUnique, update },
+  accessRequest: { findFirst, create, findMany, findUniqueOrThrow, updateMany },
   allowedUser: { upsert },
 };
 
@@ -32,8 +32,8 @@ beforeEach(() => {
   findFirst.mockReset();
   create.mockReset();
   findMany.mockReset();
-  findUnique.mockReset();
-  update.mockReset();
+  findUniqueOrThrow.mockReset();
+  updateMany.mockReset();
   upsert.mockReset();
 });
 
@@ -96,55 +96,56 @@ describe("getPendingAccessRequest / listPendingAccessRequests", () => {
 });
 
 describe("approveAccessRequest", () => {
-  it("creates the AllowedUser row and marks the request APPROVED", async () => {
-    findUnique.mockResolvedValue({ id: "r1", email: "shane@example.com", name: "Shane", status: "PENDING" });
+  it("conditionally updates on id+PENDING, then creates the AllowedUser row", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+    findUniqueOrThrow.mockResolvedValue({
+      id: "r1",
+      email: "shane@example.com",
+      name: "Shane",
+      status: "APPROVED",
+    });
     upsert.mockResolvedValue({ id: "u1", email: "shane@example.com" });
-    update.mockResolvedValue({ id: "r1", status: "APPROVED" });
 
     await approveAccessRequest("r1", "Admin@Example.COM");
 
-    expect(upsert).toHaveBeenCalledWith({
-      where: { email: "shane@example.com" },
-      update: {},
-      create: { email: "shane@example.com", name: "Shane" },
-    });
-    expect(update).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "r1", status: "PENDING" },
       data: {
         status: "APPROVED",
         resolvedAt: expect.any(Date),
         resolvedByEmail: "admin@example.com",
       },
     });
+    expect(upsert).toHaveBeenCalledWith({
+      where: { email: "shane@example.com" },
+      update: {},
+      create: { email: "shane@example.com", name: "Shane" },
+    });
   });
 
-  it("throws if the request is no longer pending", async () => {
-    findUnique.mockResolvedValue({ id: "r1", status: "APPROVED" });
+  it("throws without touching AllowedUser when the conditional update matches zero rows", async () => {
+    // count: 0 means either the row doesn't exist, or (the case this
+    // guards against) another admin's update already flipped it away
+    // from PENDING between this call reading and writing.
+    updateMany.mockResolvedValue({ count: 0 });
 
     await expect(approveAccessRequest("r1", "admin@example.com")).rejects.toThrow(
       "already been resolved",
     );
     expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("throws if the request doesn't exist", async () => {
-    findUnique.mockResolvedValue(null);
-
-    await expect(approveAccessRequest("missing", "admin@example.com")).rejects.toThrow(
-      "already been resolved",
-    );
+    expect(findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });
 
 describe("denyAccessRequest", () => {
-  it("marks the request DENIED with an optional note", async () => {
-    findUnique.mockResolvedValue({ id: "r1", email: "shane@example.com", status: "PENDING" });
-    update.mockResolvedValue({ id: "r1", status: "DENIED" });
+  it("conditionally updates on id+PENDING with an optional note", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+    findUniqueOrThrow.mockResolvedValue({ id: "r1", status: "DENIED" });
 
     await denyAccessRequest("r1", "Admin@Example.COM", "not a known contact");
 
-    expect(update).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "r1", status: "PENDING" },
       data: {
         status: "DENIED",
         resolvedAt: expect.any(Date),
@@ -154,8 +155,8 @@ describe("denyAccessRequest", () => {
     });
   });
 
-  it("throws if the request is no longer pending", async () => {
-    findUnique.mockResolvedValue({ id: "r1", status: "DENIED" });
+  it("throws when the conditional update matches zero rows", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
 
     await expect(denyAccessRequest("r1", "admin@example.com")).rejects.toThrow(
       "already been resolved",

@@ -73,4 +73,37 @@ describe("approveAccessRequest (integration)", () => {
 
     await prisma.accessRequest.deleteMany({ where: { email: `deny-${TEST_EMAIL_MARKER}` } });
   });
+
+  it("really does stop two concurrent approvals of the same request from both succeeding", async () => {
+    const email = `race-${TEST_EMAIL_MARKER}`;
+    const request = await createAccessRequestIfNeeded(email, "Race Me");
+
+    const results = await Promise.allSettled([
+      approveAccessRequest(request.id, "admin-a@example.com"),
+      approveAccessRequest(request.id, "admin-b@example.com"),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+    // Exactly one wins — not "both succeed" (the DB-level bug this test
+    // guards against) and not "both fail".
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    const finalRequest = await prisma.accessRequest.findUnique({ where: { id: request.id } });
+    expect(finalRequest?.status).toBe("APPROVED");
+    // resolvedByEmail reflects whichever admin's update actually landed —
+    // not silently overwritten by the loser, which is the failure mode a
+    // findUnique-then-update (instead of a conditional updateMany) would
+    // allow.
+    expect(["admin-a@example.com", "admin-b@example.com"]).toContain(
+      finalRequest?.resolvedByEmail,
+    );
+
+    const allowedUsers = await prisma.allowedUser.findMany({ where: { email } });
+    expect(allowedUsers).toHaveLength(1);
+
+    await prisma.allowedUser.deleteMany({ where: { email } });
+    await prisma.accessRequest.deleteMany({ where: { email } });
+  });
 });
