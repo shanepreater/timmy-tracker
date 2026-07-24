@@ -113,6 +113,12 @@ const SAMPLE_PEBBLES = [
   },
 ];
 
+/**
+ * Bootstrap admin — guarantees turning FEATURE_AUTH_GATE on never locks
+ * out the owner. See docs/design-access-control.md.
+ */
+const BOOTSTRAP_ADMIN_EMAIL = "shane.preater@gmail.com";
+
 async function main() {
   for (const pebble of SAMPLE_PEBBLES) {
     await prisma.pebble.upsert({
@@ -121,6 +127,12 @@ async function main() {
       create: pebble,
     });
   }
+
+  await prisma.allowedUser.upsert({
+    where: { email: BOOTSTRAP_ADMIN_EMAIL },
+    update: { isAdmin: true },
+    create: { email: BOOTSTRAP_ADMIN_EMAIL, isAdmin: true },
+  });
 }
 
 main()
