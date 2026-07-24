@@ -8,6 +8,22 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: timmy
+          POSTGRES_PASSWORD: timmy
+          POSTGRES_DB: timmy_tracker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://timmy:timmy@localhost:5432/timmy_tracker
     steps:
       - uses: actions/checkout@v4
 
@@ -20,8 +36,12 @@ jobs:
 
       - run: npx prisma generate
 
+      - run: npx prisma migrate deploy
+
       - run: npm run lint
 
       - run: npm test
+
+      - run: npm run test:integration
 
       - run: npm run build
