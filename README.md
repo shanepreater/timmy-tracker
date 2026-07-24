@@ -20,8 +20,9 @@ and [docs/features.md](docs/features.md) for what's built vs. outstanding.
 ./scripts/dev.sh     # every time: starts local Postgres (if installed) + the dev server
 ```
 
-Copy `.env.example` to `.env.local` and fill in the values described
-there before running the app.
+`scripts/setup.sh` creates `.env.local` from `.env.example` for you if
+it doesn't already exist — see "Getting your keys" below to fill in
+real values for whichever features you're working on.
 
 ### Scripts
 
