@@ -2,8 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SubmitPebbleState } from "./actions";
 
 const submitPebble = vi.fn();
+const requireAllowedUser = vi.fn();
+
+class FakeUnauthorizedError extends Error {}
 
 vi.mock("@/lib/pebbles", () => ({ submitPebble }));
+vi.mock("@/lib/auth-guards", () => ({
+  requireAllowedUser,
+  UnauthorizedError: FakeUnauthorizedError,
+}));
 
 const VALID = {
   latitude: "48.8584",
@@ -25,7 +32,9 @@ const idle: SubmitPebbleState = { status: "idle" };
 beforeEach(() => {
   submitPebble.mockReset();
   submitPebble.mockResolvedValue(undefined);
+  requireAllowedUser.mockReset();
   vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "true");
+  vi.stubEnv("FEATURE_AUTH_GATE", "");
 });
 
 afterEach(() => {
@@ -58,18 +67,61 @@ describe("submitPebbleAction", () => {
     expect(submitPebble).not.toHaveBeenCalled();
   });
 
-  it("submits and returns success for valid input", async () => {
+  it("submits with no submitterEmail when the auth gate is off", async () => {
     vi.resetModules();
     const { submitPebbleAction } = await import("./actions");
 
     const result = await submitPebbleAction(idle, formData(VALID));
 
     expect(result).toEqual({ status: "success" });
-    expect(submitPebble).toHaveBeenCalledWith({
-      latitude: 48.8584,
-      longitude: 2.2945,
-      depositedBy: "Sarah",
-      depositedAt: new Date("2026-03-01"),
+    expect(requireAllowedUser).not.toHaveBeenCalled();
+    expect(submitPebble).toHaveBeenCalledWith(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      undefined,
+    );
+  });
+
+  describe("with the auth gate on", () => {
+    beforeEach(() => {
+      vi.stubEnv("FEATURE_AUTH_GATE", "true");
+    });
+
+    it("errors without calling submitPebble when not an allowed user", async () => {
+      vi.resetModules();
+      requireAllowedUser.mockRejectedValue(new FakeUnauthorizedError());
+      const { submitPebbleAction } = await import("./actions");
+
+      const result = await submitPebbleAction(idle, formData(VALID));
+
+      expect(result).toEqual({
+        status: "error",
+        errors: { depositedBy: "Sign in required to submit a pebble." },
+      });
+      expect(submitPebble).not.toHaveBeenCalled();
+    });
+
+    it("records the signed-in user's email as submitterEmail", async () => {
+      vi.resetModules();
+      requireAllowedUser.mockResolvedValue({ email: "shane@example.com" });
+      const { submitPebbleAction } = await import("./actions");
+
+      const result = await submitPebbleAction(idle, formData(VALID));
+
+      expect(result).toEqual({ status: "success" });
+      expect(submitPebble).toHaveBeenCalledWith(
+        {
+          latitude: 48.8584,
+          longitude: 2.2945,
+          depositedBy: "Sarah",
+          depositedAt: new Date("2026-03-01"),
+        },
+        "shane@example.com",
+      );
     });
   });
 });

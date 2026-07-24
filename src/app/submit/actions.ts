@@ -2,6 +2,7 @@
 
 import { featureFlags } from "@/lib/feature-flags";
 import { submitPebble } from "@/lib/pebbles";
+import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import {
   validateSubmitPebbleInput,
   type SubmitPebbleFormErrors,
@@ -25,6 +26,27 @@ export async function submitPebbleAction(
     };
   }
 
+  // Independently enforces the site-wide whitelist policy (see
+  // docs/design-access-control.md's "Route protection policy") rather
+  // than trusting that /submit was reached through the gated UI. Only
+  // applies while the gate itself is on — with it off, submissions stay
+  // fully public, matching the rest of the (ungated) site.
+  let submitterEmail: string | undefined;
+  if (featureFlags.authGate) {
+    try {
+      const user = await requireAllowedUser();
+      submitterEmail = user.email;
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        return {
+          status: "error",
+          errors: { depositedBy: "Sign in required to submit a pebble." },
+        };
+      }
+      throw error;
+    }
+  }
+
   const result = validateSubmitPebbleInput({
     latitude: String(formData.get("latitude") ?? ""),
     longitude: String(formData.get("longitude") ?? ""),
@@ -36,6 +58,6 @@ export async function submitPebbleAction(
     return { status: "error", errors: result.errors };
   }
 
-  await submitPebble(result.data);
+  await submitPebble(result.data, submitterEmail);
   return { status: "success" };
 }
