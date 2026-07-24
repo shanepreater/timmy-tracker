@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getVerifiedPebbles } from "@/lib/pebbles";
+import { getVerifiedPebbles, submitPebble } from "@/lib/pebbles";
 
 const TEST_ID_PREFIX = "integration-test-pebble-";
+const SUBMIT_TEST_MARKER = "integration-test-submit-pebble";
+
+afterAll(async () => {
+  await prisma.$disconnect();
+});
 
 function testPebble(suffix: string, overrides: Partial<Parameters<typeof prisma.pebble.create>[0]["data"]>) {
   return {
@@ -41,10 +46,6 @@ describe("getVerifiedPebbles (integration)", () => {
     });
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
-
   it("returns only verified pebbles, ordered oldest first", async () => {
     const result = await getVerifiedPebbles();
     const testResults = result.filter((p) => p.id.startsWith(TEST_ID_PREFIX));
@@ -53,5 +54,35 @@ describe("getVerifiedPebbles (integration)", () => {
       `${TEST_ID_PREFIX}older-verified`,
       `${TEST_ID_PREFIX}newer-verified`,
     ]);
+  });
+});
+
+describe("submitPebble (integration)", () => {
+  beforeAll(async () => {
+    await prisma.pebble.deleteMany({
+      where: { depositedBy: SUBMIT_TEST_MARKER },
+    });
+  });
+
+  it("creates a PENDING pebble that doesn't show up as verified", async () => {
+    await submitPebble({
+      latitude: 10,
+      longitude: 20,
+      depositedBy: SUBMIT_TEST_MARKER,
+      depositedAt: new Date("2026-05-01"),
+    });
+
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: SUBMIT_TEST_MARKER },
+    });
+    expect(stored).toMatchObject({
+      latitude: 10,
+      longitude: 20,
+      depositedBy: SUBMIT_TEST_MARKER,
+      status: "PENDING",
+    });
+
+    const verified = await getVerifiedPebbles();
+    expect(verified.some((p) => p.depositedBy === SUBMIT_TEST_MARKER)).toBe(false);
   });
 });
