@@ -20,6 +20,45 @@ export type ValidateSubmitPebbleResult =
   | { data: SubmitPebbleInput; errors?: never }
   | { data?: never; errors: SubmitPebbleFormErrors };
 
+export type CoordinateErrors = Partial<Record<"latitude" | "longitude", string>>;
+
+export type ValidateCoordinatesResult =
+  | { latitude: number; longitude: number; errors?: never }
+  | { latitude?: never; longitude?: never; errors: CoordinateErrors };
+
+/**
+ * Shared by validateSubmitPebbleInput and the admin move-pebble action —
+ * one set of range rules, matching the DB CHECK constraints on
+ * Pebble.latitude/longitude (see the access_control migration).
+ */
+export function validateCoordinates(
+  latitudeRaw: string,
+  longitudeRaw: string,
+): ValidateCoordinatesResult {
+  const errors: CoordinateErrors = {};
+
+  const latitude = Number(latitudeRaw);
+  if (latitudeRaw.trim() === "" || Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
+    errors.latitude = "Enter a latitude between -90 and 90.";
+  }
+
+  const longitude = Number(longitudeRaw);
+  if (
+    longitudeRaw.trim() === "" ||
+    Number.isNaN(longitude) ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    errors.longitude = "Enter a longitude between -180 and 180.";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { errors };
+  }
+
+  return { latitude, longitude };
+}
+
 /**
  * Public submissions take raw lat/long rather than a place name — geocoding
  * a name is an admin convenience feature (docs/features.md), not part of
@@ -28,22 +67,8 @@ export type ValidateSubmitPebbleResult =
 export function validateSubmitPebbleInput(
   values: SubmitPebbleFormValues,
 ): ValidateSubmitPebbleResult {
-  const errors: SubmitPebbleFormErrors = {};
-
-  const latitude = Number(values.latitude);
-  if (values.latitude.trim() === "" || Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
-    errors.latitude = "Enter a latitude between -90 and 90.";
-  }
-
-  const longitude = Number(values.longitude);
-  if (
-    values.longitude.trim() === "" ||
-    Number.isNaN(longitude) ||
-    longitude < -180 ||
-    longitude > 180
-  ) {
-    errors.longitude = "Enter a longitude between -180 and 180.";
-  }
+  const coordinates = validateCoordinates(values.latitude, values.longitude);
+  const errors: SubmitPebbleFormErrors = { ...coordinates.errors };
 
   const depositedBy = values.depositedBy.trim();
   if (!depositedBy) {
@@ -57,9 +82,11 @@ export function validateSubmitPebbleInput(
     errors.depositedAt = "Date deposited can't be in the future.";
   }
 
-  if (Object.keys(errors).length > 0) {
+  if (coordinates.errors || Object.keys(errors).length > 0) {
     return { errors };
   }
 
-  return { data: { latitude, longitude, depositedBy, depositedAt } };
+  return {
+    data: { latitude: coordinates.latitude, longitude: coordinates.longitude, depositedBy, depositedAt },
+  };
 }
