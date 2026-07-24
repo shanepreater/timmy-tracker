@@ -5,6 +5,12 @@ import { requireAdmin } from "@/lib/auth-guards";
 import { featureFlags } from "@/lib/feature-flags";
 import { approveAccessRequest, denyAccessRequest } from "@/lib/access-requests";
 import { addAllowedUser, removeAllowedUser, setAllowedUserAdmin } from "@/lib/allowed-users";
+import { createPebbleByAdmin, verifyPebble, movePebble } from "@/lib/pebbles";
+import {
+  validateSubmitPebbleInput,
+  validateCoordinates,
+  type SubmitPebbleFormErrors,
+} from "@/lib/pebble-validation";
 
 /**
  * FEATURE_ADMIN gates /admin's existence in the UI (notFound() when
@@ -59,4 +65,58 @@ export async function toggleAllowedUserAdminAction(
   await requireAdmin();
   await setAllowedUserAdmin(id, !currentIsAdmin);
   revalidatePath("/admin");
+}
+
+export type AddPebbleState =
+  | { status: "idle" }
+  | { status: "error"; errors: SubmitPebbleFormErrors }
+  | { status: "success" };
+
+export async function addPebbleAction(
+  _prevState: AddPebbleState,
+  formData: FormData,
+): Promise<AddPebbleState> {
+  if (!featureFlags.admin) {
+    return { status: "error", errors: { depositedBy: "The admin section isn't enabled." } };
+  }
+  await requireAdmin();
+
+  const result = validateSubmitPebbleInput({
+    latitude: String(formData.get("latitude") ?? ""),
+    longitude: String(formData.get("longitude") ?? ""),
+    depositedBy: String(formData.get("depositedBy") ?? ""),
+    depositedAt: String(formData.get("depositedAt") ?? ""),
+  });
+
+  if (result.errors) {
+    return { status: "error", errors: result.errors };
+  }
+
+  await createPebbleByAdmin(result.data);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { status: "success" };
+}
+
+export async function verifyPebbleAction(id: string, _formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  await verifyPebble(id);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function movePebbleAction(id: string, formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+
+  const coordinates = validateCoordinates(
+    String(formData.get("latitude") ?? ""),
+    String(formData.get("longitude") ?? ""),
+  );
+  if (coordinates.errors) return;
+
+  await movePebble(id, coordinates.latitude, coordinates.longitude);
+  revalidatePath("/admin");
+  revalidatePath("/");
 }
