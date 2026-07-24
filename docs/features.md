@@ -67,3 +67,6 @@ Use the dates to trace a fly-by across the map highlighting the places in chrono
 
 ### What Three words
 Allow the user to provide the pebble location using the popular What three words approach.
+
+### ASsociate a photo with a location
+We need to allow the user to upload a picture to associate with the location of the Pebble.
