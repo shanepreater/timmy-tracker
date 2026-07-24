@@ -13,12 +13,38 @@ enum PebbleStatus {
 }
 
 model Pebble {
-  id          String       @id @default(cuid())
-  latitude    Float
-  longitude   Float
-  depositedBy String
-  depositedAt DateTime
-  status      PebbleStatus @default(PENDING)
-  createdAt   DateTime     @default(now())
-  verifiedAt  DateTime?
+  id             String       @id @default(cuid())
+  latitude       Float
+  longitude      Float
+  depositedBy    String
+  submitterEmail String?
+  depositedAt    DateTime
+  status         PebbleStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  verifiedAt     DateTime?
+}
+
+model AllowedUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model AccessRequest {
+  id              String              @id @default(cuid())
+  email           String
+  name            String?
+  status          AccessRequestStatus @default(PENDING)
+  requestedAt     DateTime            @default(now())
+  resolvedAt      DateTime?
+  resolvedByEmail String?
+  note            String?
 }
