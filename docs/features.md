@@ -43,7 +43,8 @@ In order to be initially useful the system needs to provide the following:
   doesn't show up on the map until an admin verifies it. Also supports
   looking up a place name to fill in the coordinates (Geocoding API,
   same key as the map) — submitters don't need to know exact lat/long.
-* Simple admin section (behind SSO log in)
+* Simple admin section (behind SSO log in) — see "User access
+  restrictions" below for the login/whitelist design this depends on
   * Add a pebble location using lat / long
   * Add a pebble using location name to resolve to lat / long — the
     lookup piece already exists (`PlaceLookup` in `SubmitPebbleForm`)
@@ -74,8 +75,15 @@ Allow the user to provide the pebble location using the popular What three words
 ### Associate a photo with a location
 We need to allow the user to upload a picture to associate with the location of the Pebble.
 
-### User access restrictions
+### [] User access restrictions
 Restrict access to the app to a known group of users. This should be administered by admin users and use the google account name for the allowed users.
+
+Design: [docs/design-access-control.md](design-access-control.md). Whole
+app gated behind Google sign-in + an `AllowedUser` whitelist table;
+non-whitelisted signed-in visitors get a self-service "Request access"
+button; admins approve/deny requests and manage the whitelist directly.
+Supersedes the inline admin-SSO notes on the MVP bullet below — not yet
+implemented.
 
 ### Design the UI better
 Update the look and feel of the app so it is not just boring HTML. Use material design as a base but do something interesting and cool with the site.
