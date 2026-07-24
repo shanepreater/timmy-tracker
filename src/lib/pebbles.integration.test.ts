@@ -17,6 +17,12 @@ function testPebble(suffix: string, overrides: Partial<Parameters<typeof prisma.
 
 describe("getVerifiedPebbles (integration)", () => {
   beforeAll(async () => {
+    // Guards against a stale row from a previous crashed run causing a
+    // primary-key conflict here instead of a clean, deterministic state.
+    await prisma.pebble.deleteMany({
+      where: { id: { startsWith: TEST_ID_PREFIX } },
+    });
+
     await prisma.pebble.createMany({
       data: [
         testPebble("older-verified", {

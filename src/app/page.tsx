@@ -1,4 +1,5 @@
 import { Map } from "@/components/Map";
+import { featureFlags } from "@/lib/feature-flags";
 import { getVerifiedPebbles } from "@/lib/pebbles";
 
 // Pebble data changes whenever an admin verifies a submission, so this
@@ -7,7 +8,9 @@ import { getVerifiedPebbles } from "@/lib/pebbles";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const pebbles = await getVerifiedPebbles();
+  // Skip the query entirely while the map is flagged off, so the site
+  // doesn't need a working Postgres connection just to load the home page.
+  const pebbles = featureFlags.map ? await getVerifiedPebbles() : [];
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">

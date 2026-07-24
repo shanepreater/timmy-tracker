@@ -24,7 +24,7 @@ Auth.js/Google admin SSO from the MVP feature below.
 ### [] MVP
 In order to be initially useful the system needs to provide the following:
 * Intro section about Timmy and the website's intent. ✅
-* Map of the world embeded into the app — scaffolded, stays behind
+* Map of the world embedded into the app — scaffolded, stays behind
   `NEXT_PUBLIC_FEATURE_MAP` until a real Maps API key is provisioned.
 * Series of pebble locations which is retrieved from some kind of store —
   ✅ `getVerifiedPebbles()` (Prisma/Postgres) renders real markers once
