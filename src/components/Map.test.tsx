@@ -15,7 +15,7 @@ describe("Map", () => {
   it("shows a placeholder when the map feature flag is off", async () => {
     vi.resetModules();
     const { Map } = await import("./Map");
-    render(<Map />);
+    render(<Map pebbles={[]} />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
   });
@@ -25,7 +25,7 @@ describe("Map", () => {
     vi.resetModules();
 
     const { Map } = await import("./Map");
-    render(<Map />);
+    render(<Map pebbles={[]} />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
   });
