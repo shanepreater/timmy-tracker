@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeEmail } from "@/lib/email";
@@ -13,9 +14,11 @@ type AuthGateProps = {
 /**
  * The Node half of the gate (see docs/design-access-control.md): does
  * the whitelist DB lookup that proxy.ts (Edge, no Prisma) can't.
- * Middleware already guarantees a session exists here when the flag is
- * on — the no-session branch below is a defensive fallback, not the
- * primary enforcement.
+ * proxy.ts's matcher already guarantees a session exists here in
+ * practice, but this component doesn't trust that — fails closed
+ * (redirects) rather than rendering the app if it somehow finds no
+ * session, matching the "Route protection policy" applied everywhere
+ * else: never assume a request only ever arrives via the gated path.
  */
 export async function AuthGate({ children }: AuthGateProps) {
   if (!featureFlags.authGate) {
@@ -26,7 +29,7 @@ export async function AuthGate({ children }: AuthGateProps) {
   const email = session?.user?.email;
 
   if (!email) {
-    return <>{children}</>;
+    redirect("/api/auth/signin");
   }
 
   const allowedUser = await prisma.allowedUser.findUnique({

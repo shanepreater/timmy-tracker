@@ -59,6 +59,16 @@ describe("proxy (Edge auth gate)", () => {
     expect(location).toContain("callbackUrl=%2Fadmin");
   });
 
+  it("preserves the query string in the callback URL, not just the path", async () => {
+    vi.resetModules();
+    const proxy = await loadProxy();
+
+    const response = proxy(fakeRequest("/admin?tab=pending&sort=asc", null));
+
+    const location = response.headers.get("location");
+    expect(location).toContain("callbackUrl=%2Fadmin%3Ftab%3Dpending%26sort%3Dasc");
+  });
+
   it("passes requests through when there's a session", async () => {
     vi.resetModules();
     const proxy = await loadProxy();
