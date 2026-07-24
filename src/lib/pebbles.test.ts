@@ -2,12 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
 const create = vi.fn();
+const update = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { pebble: { findMany, create } },
+  prisma: { pebble: { findMany, create, update } },
 }));
 
-const { getVerifiedPebbles, submitPebble, formatPebbleDate } = await import("./pebbles");
+const {
+  getVerifiedPebbles,
+  submitPebble,
+  formatPebbleDate,
+  listAllPebbles,
+  createPebbleByAdmin,
+  verifyPebble,
+  movePebble,
+} = await import("./pebbles");
 
 describe("getVerifiedPebbles", () => {
   beforeEach(() => {
@@ -88,6 +97,81 @@ describe("submitPebble", () => {
         data: expect.objectContaining({ submitterEmail: "shane@example.com" }),
       }),
     );
+  });
+});
+
+describe("listAllPebbles", () => {
+  beforeEach(() => {
+    findMany.mockReset();
+  });
+
+  it("queries every pebble, pending first then newest-created", async () => {
+    findMany.mockResolvedValue([]);
+
+    await listAllPebbles();
+
+    expect(findMany).toHaveBeenCalledWith({
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    });
+  });
+});
+
+describe("createPebbleByAdmin", () => {
+  beforeEach(() => {
+    create.mockReset();
+    create.mockResolvedValue(undefined);
+  });
+
+  it("creates the pebble already VERIFIED with no submitterEmail", async () => {
+    await createPebbleByAdmin({
+      latitude: 48.8584,
+      longitude: 2.2945,
+      depositedBy: "Sarah",
+      depositedAt: new Date("2026-03-01"),
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+        status: "VERIFIED",
+        verifiedAt: expect.any(Date),
+      },
+    });
+  });
+});
+
+describe("verifyPebble", () => {
+  beforeEach(() => {
+    update.mockReset();
+    update.mockResolvedValue(undefined);
+  });
+
+  it("sets status to VERIFIED and stamps verifiedAt", async () => {
+    await verifyPebble("p1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "p1" },
+      data: { status: "VERIFIED", verifiedAt: expect.any(Date) },
+    });
+  });
+});
+
+describe("movePebble", () => {
+  beforeEach(() => {
+    update.mockReset();
+    update.mockResolvedValue(undefined);
+  });
+
+  it("updates only the coordinates", async () => {
+    await movePebble("p1", 10, 20);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "p1" },
+      data: { latitude: 10, longitude: 20 },
+    });
   });
 });
 
