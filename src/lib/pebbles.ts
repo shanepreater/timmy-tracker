@@ -47,13 +47,23 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
 /**
  * Public submissions always land as PENDING — an admin has to verify one
  * before it shows up in getVerifiedPebbles().
+ *
+ * submitterEmail is captured from the signed-in session (when
+ * FEATURE_AUTH_GATE is on) independently of the editable depositedBy
+ * display name — see docs/design-access-control.md's "Pebble provenance"
+ * note. It's undefined while the gate is off, since there's no session
+ * to capture it from.
  */
-export async function submitPebble(input: SubmitPebbleInput): Promise<void> {
+export async function submitPebble(
+  input: SubmitPebbleInput,
+  submitterEmail?: string,
+): Promise<void> {
   await prisma.pebble.create({
     data: {
       latitude: input.latitude,
       longitude: input.longitude,
       depositedBy: input.depositedBy,
+      submitterEmail,
       depositedAt: input.depositedAt,
       status: "PENDING",
     },

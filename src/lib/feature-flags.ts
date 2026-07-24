@@ -10,6 +10,7 @@ export const featureFlags = {
   map: process.env.NEXT_PUBLIC_FEATURE_MAP === "true",
   submitPebble: process.env.NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE === "true",
   admin: process.env.FEATURE_ADMIN === "true",
+  authGate: process.env.FEATURE_AUTH_GATE === "true",
 } as const;
 
 export type FeatureFlags = typeof featureFlags;

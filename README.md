@@ -73,7 +73,7 @@ your local Postgres.
 5. Paste the key into `.env.local` and set
    `NEXT_PUBLIC_FEATURE_MAP="true"` to turn the map on.
 
-### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — admin SSO
+### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — sign-in
 
 1. Same Cloud Console project as above → **APIs & Services →
    Credentials → Create credentials → OAuth client ID**.
@@ -84,8 +84,13 @@ your local Postgres.
 4. Copy the generated **Client ID** and **Client secret** into
    `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
 5. Generate `AUTH_SECRET` with `npx auth secret` (or
-   `openssl rand -base64 32`) and set `FEATURE_ADMIN="true"` once you're
-   ready to test the admin area.
+   `openssl rand -base64 32`).
+6. Set `FEATURE_AUTH_GATE="true"` to require sign-in for the whole app
+   (whitelisted via the `AllowedUser` table — `prisma/seed.ts` seeds
+   `shane.preater@gmail.com` as the bootstrap admin) — see
+   `docs/design-access-control.md`. Set `FEATURE_ADMIN="true"` to turn
+   on the `/admin` route itself (managing the whitelist, approving
+   access requests).
 
 ## Development
 

@@ -85,4 +85,22 @@ describe("submitPebble (integration)", () => {
     const verified = await getVerifiedPebbles();
     expect(verified.some((p) => p.depositedBy === SUBMIT_TEST_MARKER)).toBe(false);
   });
+
+  it("records submitterEmail when given", async () => {
+    await submitPebble(
+      {
+        latitude: 10,
+        longitude: 20,
+        depositedBy: SUBMIT_TEST_MARKER,
+        depositedAt: new Date("2026-05-01"),
+      },
+      "shane@example.com",
+    );
+
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: SUBMIT_TEST_MARKER },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(stored?.submitterEmail).toBe("shane@example.com");
+  });
 });

@@ -65,10 +65,29 @@ describe("submitPebble", () => {
         latitude: 48.8584,
         longitude: 2.2945,
         depositedBy: "Sarah",
+        submitterEmail: undefined,
         depositedAt: new Date("2026-03-01"),
         status: "PENDING",
       },
     });
+  });
+
+  it("records submitterEmail when given, independently of depositedBy", async () => {
+    await submitPebble(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah (via Google as shane@example.com)",
+        depositedAt: new Date("2026-03-01"),
+      },
+      "shane@example.com",
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ submitterEmail: "shane@example.com" }),
+      }),
+    );
   });
 });
 

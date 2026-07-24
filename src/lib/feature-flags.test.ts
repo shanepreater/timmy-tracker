@@ -4,6 +4,7 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_FEATURE_MAP",
   "NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE",
   "FEATURE_ADMIN",
+  "FEATURE_AUTH_GATE",
 ] as const;
 
 async function loadFlags() {
@@ -30,6 +31,7 @@ describe("featureFlags", () => {
       map: false,
       submitPebble: false,
       admin: false,
+      authGate: false,
     });
   });
 
@@ -37,11 +39,13 @@ describe("featureFlags", () => {
     vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
     vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "1");
     vi.stubEnv("FEATURE_ADMIN", "TRUE");
+    vi.stubEnv("FEATURE_AUTH_GATE", "true");
 
     const featureFlags = await loadFlags();
 
     expect(featureFlags.map).toBe(true);
     expect(featureFlags.submitPebble).toBe(false);
     expect(featureFlags.admin).toBe(false);
+    expect(featureFlags.authGate).toBe(true);
   });
 });
