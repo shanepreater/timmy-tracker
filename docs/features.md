@@ -16,6 +16,11 @@ The system neats a robust CICD pipeline in order to ensure quality and also to e
 ### [] Base Framework
 The system needs to have the website framework established (probably next.js) and also the google map integration done.
 
+Design: [docs/design.md](design.md). Next.js/TypeScript app, Prisma/Postgres,
+and a flagged Google Maps component are scaffolded; still outstanding before
+this can be ticked: a real Maps API key wired up + deployed, and the
+Auth.js/Google admin SSO from the MVP feature below.
+
 ### [] MVP
 In order to be initially useful the system needs to provide the following:
 * Intro section about Timmy and the website's intent.
