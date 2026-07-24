@@ -56,6 +56,10 @@ enum PebbleStatus {
 verify submitted pebble" flow (admin) can share one table: a submission
 is just a `Pebble` row created with `status = PENDING`.
 
+`docs/design-access-control.md` adds one more field, `submitterEmail`
+(immutable, captured from the session), alongside the existing
+editable `depositedBy` — see that doc for why.
+
 ## Feature flags
 
 `docs/features.md` intentionally lists work that lands incrementally, and

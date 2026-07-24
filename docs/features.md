@@ -1,89 +1,158 @@
 # Required system features
-This is the shopping list of features for the system which have yet to be delivered. 
+
+This is the active backlog of outstanding work. Historical detail for
+completed items should be read from git history.
 
 ## Features work process
-1. Pick the feature design and implement it. 
-2. Mark the feature as completed (ticked) in this document.
-3. Check for previously completed (ticked) items and remove them.
 
-That way this document contains the outstanding features as well as the last ones closed. If you require historical details of past features then git history is your friend.
+1. Pick a feature and confirm its design brief.
+2. Implement behind a feature switch (default off) unless the feature is an
+   operational concern (for example CI/CD workflow-only changes).
+3. Add or adjust tests to prove acceptance criteria.
+4. Mark the feature complete in this document, then remove old completed
+   entries when they are no longer useful as immediate context.
 
-## Features
+## Source design documents
 
-### [] CICD pipeline
-The system neats a robust CICD pipeline in order to ensure quality and also to eventually auto deploy to the end stack.
+* [docs/design.md](design.md) - base framework, data model, maps, testing,
+  and feature-flag approach.
+* [docs/design-access-control.md](design-access-control.md) - app-wide auth
+  gate, whitelist model, and access request workflow.
 
-Delivered so far in `.github/workflows/ci.yml`: ESLint, shellcheck
-(`scripts/*.sh`), actionlint (the workflow files themselves), a Vitest
-suite, a production build, and a gitleaks secrets scan across the full
-git history on every push/PR (fails the build on a hit). Still
-outstanding before this can be ticked: automated deploy-on-merge to
-Vercel.
+## Backlog
 
-### [] Base Framework
-The system needs to have the website framework established (probably next.js) and also the google map integration done.
+### [ ] CI/CD pipeline and deployment
+Design brief:
+Harden and complete delivery automation using the existing GitHub Actions
+workflow as the quality gate, then add deploy-on-merge to production.
 
-Design: [docs/design.md](design.md). Next.js/TypeScript app, Prisma/Postgres,
-and a flagged Google Maps component are scaffolded; still outstanding before
-this can be ticked: a real Maps API key wired up + deployed, and the
-Auth.js/Google admin SSO from the MVP feature below.
+Current state:
+`.github/workflows/ci.yml` already runs ESLint, shellcheck
+(`scripts/*.sh`), actionlint, Vitest, production build, and gitleaks on
+push/PR.
 
-### [] MVP
-In order to be initially useful the system needs to provide the following:
-* Intro section about Timmy and the website's intent. ✅
-* Map of the world embedded into the app — ✅ scaffolded and working
-  (verified end-to-end with a real API key + Playwright), stays behind
-  `NEXT_PUBLIC_FEATURE_MAP` until deployed. Clicking a pebble marker
-  shows who deposited it and when.
-* Series of pebble locations which is retrieved from some kind of store —
-  ✅ `getVerifiedPebbles()` (Prisma/Postgres) renders real markers once
-  the map flag above is on.
-* Submit a pebble — ✅ `/submit` form (lat/long, deposited by, date),
-  behind `NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE`. Always lands as `PENDING`;
-  doesn't show up on the map until an admin verifies it. Also supports
-  looking up a place name to fill in the coordinates (Geocoding API,
-  same key as the map) — submitters don't need to know exact lat/long.
-* Simple admin section (behind SSO log in) — see "User access
-  restrictions" below for the login/whitelist design this depends on
-  * Add a pebble location using lat / long
-  * Add a pebble using location name to resolve to lat / long — the
-    lookup piece already exists (`PlaceLookup` in `SubmitPebbleForm`)
-    and can be reused here once the admin UI itself is built
-  * Move a pebble
-  * Accept / verify submitted pebble
+Acceptance criteria:
+* Pull requests to `main` are blocked unless all CI checks pass.
+* Merge to `main` triggers exactly one production deploy workflow/job.
+* Deploy job uses repository/environment secrets (no inline credentials).
+* Deploy failure is visible in GitHub checks and does not report success.
+* README or docs include the deploy pipeline flow and rollback approach.
 
-Note: `prisma/seed.ts` currently has a *template* dataset (real-world
-landmarks, placeholder names) standing in for Tim's actual pebbles —
-swap in the real place/who/when once it's supplied, following the same
-shape.
+### [ ] Base framework completion
+Design brief:
+Close the remaining gaps in the base architecture from `docs/design.md`
+so the app can run in a deployed environment with maps and data fully
+wired.
 
-#### Pebble
-Each pebble has the following associated data:
-* Lat / Long (location)
-* Deposited by (text field)
-* Deposited date
+Acceptance criteria:
+* Production environment has required variables documented and set
+  (Postgres, Auth.js, Google Maps where applicable).
+* Prisma migrations apply cleanly in CI and production deploy flow.
+* Map integration can be enabled via `NEXT_PUBLIC_FEATURE_MAP=true` and
+  renders with live API key in deployed environment.
+* Smoke test config in `output/configs/` is current and reproducible.
 
-### CICD deployment
-The system needs to auto deploy on merge to main using the CICD Pipeline.
+### [ ] User access restrictions
+Design brief:
+Implement invite-only access from `docs/design-access-control.md` with
+Google sign-in, whitelist enforcement, request-access flow, and admin
+management of access.
 
-### Fly-by mode
-Use the dates to trace a fly-by across the map highlighting the places in chronological order.
+Acceptance criteria:
+* With `FEATURE_AUTH_GATE=true`, unauthenticated users are redirected to
+  sign-in for protected routes.
+* Signed-in users not in `AllowedUser` cannot access app content and are
+  shown a request-access screen.
+* Request-access action is idempotent for pending requests per email.
+* Admin users can approve/deny requests and directly manage allowlisted
+  users (add/remove/toggle admin).
+* Non-admin users cannot access admin routes or admin actions.
+* Seed data guarantees at least one bootstrap admin account.
+* Automated tests cover gate behavior, whitelist checks, and admin-only
+  actions.
 
-### What Three words
-Allow the user to provide the pebble location using the popular What three words approach.
+### [ ] MVP admin section
+Design brief:
+Deliver admin pebble management workflows on top of the access-control
+gate and existing pebble storage model.
 
-### Associate a photo with a location
-We need to allow the user to upload a picture to associate with the location of the Pebble.
+Scope:
+* Add pebble by lat/long.
+* Add pebble by place lookup (reuse existing lookup component behavior).
+* Move pebble location.
+* Accept or verify submitted pebbles.
 
-### [] User access restrictions
-Restrict access to the app to a known group of users. This should be administered by admin users and use the google account name for the allowed users.
+Acceptance criteria:
+* All admin pebble mutations require admin authorization.
+* Newly submitted pebbles remain `PENDING` until verified.
+* Verified pebbles appear on map data source; pending ones do not.
+* Move workflow updates persisted coordinates and is reflected on map.
+* All flows are covered by unit/integration tests, plus at least one
+  end-to-end admin path.
 
-Design: [docs/design-access-control.md](design-access-control.md). Whole
-app gated behind Google sign-in + an `AllowedUser` whitelist table;
-non-whitelisted signed-in visitors get a self-service "Request access"
-button; admins approve/deny requests and manage the whitelist directly.
-Supersedes the inline admin-SSO notes on the MVP bullet below — not yet
-implemented.
+### [ ] Fly-by mode
+Design brief:
+Provide a chronological playback mode that visualizes Tim's pebble
+journey over time using existing pebble date/location fields.
 
-### Design the UI better
-Update the look and feel of the app so it is not just boring HTML. Use material design as a base but do something interesting and cool with the site.
+Acceptance criteria:
+* Playback orders points by `depositedAt` ascending.
+* User can start, pause, resume, and restart playback.
+* Current active location is visually distinct from historical points.
+* Playback works on desktop and mobile viewports.
+* Feature is behind a dedicated flag and defaults off.
+
+### [ ] What3words support
+Design brief:
+Allow location entry via what3words addresses as an alternative to
+lat/long and place-name geocoding.
+
+Acceptance criteria:
+* User can enter a valid what3words address and resolve it to
+  coordinates.
+* Invalid what3words input returns a clear validation error.
+* Resolved coordinates flow through existing pebble create/update
+  validation and persistence.
+* Provider API key/config is documented and handled securely.
+* Feature is behind a dedicated flag and defaults off.
+
+### [ ] Associate a photo with a location
+Design brief:
+Support uploading and storing a photo per pebble, with safe validation,
+storage, and display behavior.
+
+Acceptance criteria:
+* Supported image formats and max size are validated server-side.
+* Upload stores media in the selected storage backend and persists a
+  reference on pebble records.
+* Broken/missing media references fail gracefully in UI.
+* Authorization rules are enforced for who can add/remove photos.
+* Feature is behind a dedicated flag and defaults off.
+
+### [ ] UI redesign
+Design brief:
+Redesign the visual layer to a more intentional Material-inspired system
+while preserving existing feature flags and behaviors.
+
+Acceptance criteria:
+* Shared design tokens are defined (color, spacing, type scale,
+  elevation/state styles).
+* Core screens (home/map, submit, auth-gated states, admin) use the new
+  visual system consistently.
+* Responsive layout works on common mobile and desktop widths.
+* Accessibility baseline is met (keyboard navigation, visible focus,
+  contrast checks, semantic headings/landmarks).
+* Existing functional tests remain green; visual update does not regress
+  core workflows.
+
+## Domain data contract: Pebble
+
+Each pebble currently carries:
+* Latitude/longitude location.
+* Deposited-by display name.
+* Deposited date.
+* Moderation status (`PENDING`/`VERIFIED`).
+
+Implementation note:
+As access control is implemented, keep the display name editable but also
+store immutable submitter identity for auditability.
