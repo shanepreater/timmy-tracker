@@ -1,6 +1,14 @@
 import { Map } from "@/components/Map";
+import { getVerifiedPebbles } from "@/lib/pebbles";
 
-export default function Home() {
+// Pebble data changes whenever an admin verifies a submission, so this
+// page shouldn't be statically cached at build time (and a build with no
+// DATABASE_URL, e.g. before local Postgres is set up, still succeeds).
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const pebbles = await getVerifiedPebbles();
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
       <div className="flex flex-col gap-4">
@@ -12,7 +20,7 @@ export default function Home() {
           ashes have been placed by the people who loved him.
         </p>
       </div>
-      <Map />
+      <Map pebbles={pebbles} />
     </main>
   );
 }
