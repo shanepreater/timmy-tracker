@@ -13,6 +13,13 @@ That way this document contains the outstanding features as well as the last one
 ### [] CICD pipeline
 The system neats a robust CICD pipeline in order to ensure quality and also to eventually auto deploy to the end stack.
 
+Delivered so far in `.github/workflows/ci.yml`: ESLint, shellcheck
+(`scripts/*.sh`), actionlint (the workflow files themselves), a Vitest
+suite, a production build, and a gitleaks secrets scan across the full
+git history on every push/PR (fails the build on a hit). Still
+outstanding before this can be ticked: automated deploy-on-merge to
+Vercel.
+
 ### [] Base Framework
 The system needs to have the website framework established (probably next.js) and also the google map integration done.
 
