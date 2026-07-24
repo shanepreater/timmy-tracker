@@ -27,6 +27,7 @@ jobs:
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: scripts
+          check_together: "yes"
 
       - name: actionlint
         uses: reviewdog/action-actionlint@v1
