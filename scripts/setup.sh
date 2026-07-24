@@ -4,18 +4,9 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-if [ -s "$HOME/.nvm/nvm.sh" ]; then
-  NVM_SH="$HOME/.nvm/nvm.sh"
-elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
-  NVM_SH="/opt/homebrew/opt/nvm/nvm.sh"
-else
-  echo "error: nvm not found. Install it first: https://github.com/nvm-sh/nvm" >&2
-  exit 1
-fi
-
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-# shellcheck disable=SC1090
-source "$NVM_SH"
+# shellcheck source=scripts/_nvm.sh
+source scripts/_nvm.sh
+load_nvm
 
 nvm install
 nvm use

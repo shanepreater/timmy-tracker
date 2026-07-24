@@ -16,12 +16,18 @@ and [docs/features.md](docs/features.md) for what's built vs. outstanding.
 ## Getting started
 
 ```bash
-./scripts/setup.sh   # installs the right Node version and dependencies
-npm run dev
+./scripts/setup.sh   # one-time: installs the right Node version, dependencies, .env files
+./scripts/dev.sh     # every time: starts local Postgres (if installed) + the dev server
 ```
 
 Copy `.env.example` to `.env.local` and fill in the values described
 there before running the app.
+
+### Scripts
+
+* `scripts/setup.sh` — one-time environment bootstrap (Node via nvm, `npm install`, starter `.env`/`.env.local`). Safe to re-run.
+* `scripts/dev.sh` — starts local Postgres (if `postgresql@16` is installed via brew) and runs `npm run dev`. Works fine with no Postgres installed too — the app just runs with the map feature off.
+* `scripts/db.sh {start|stop|status}` — control the local Postgres service directly, e.g. before running `npm run test:integration`.
 
 ## Getting your keys
 

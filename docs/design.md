@@ -91,7 +91,10 @@ src/
 prisma/
   schema.prisma
 scripts/
-  setup.sh             # One-command local environment bootstrap
+  setup.sh             # One-time local environment bootstrap
+  dev.sh               # Starts local Postgres (if present) + the dev server
+  db.sh                # start|stop|status for local Postgres
+  _nvm.sh              # Shared nvm loader, sourced by the scripts above
 .github/workflows/
   ci.yml               # Lint + test on every PR
 output/configs/
