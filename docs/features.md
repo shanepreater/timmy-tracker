@@ -70,3 +70,9 @@ Allow the user to provide the pebble location using the popular What three words
 
 ### Associate a photo with a location
 We need to allow the user to upload a picture to associate with the location of the Pebble.
+
+### User access restrictions
+Restrict access to the app to a known group of users. This should be administered by admin users and use the google account name for the allowed users.
+
+### Design the UI better
+Update the look and feel of the app so it is not just boring HTML. Use material design as a base but do something interesting and cool with the site.
