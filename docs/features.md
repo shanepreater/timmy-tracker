@@ -36,12 +36,19 @@ In order to be initially useful the system needs to provide the following:
 * Series of pebble locations which is retrieved from some kind of store —
   ✅ `getVerifiedPebbles()` (Prisma/Postgres) renders real markers once
   the map flag above is on.
-* Submit a pebble 
+* Submit a pebble — ✅ `/submit` form (lat/long, deposited by, date),
+  behind `NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE`. Always lands as `PENDING`;
+  doesn't show up on the map until an admin verifies it.
 * Simple admin section (behind SSO log in)
   * Add a pebble location using lat / long
   * Add a pebble using location name to resolve to lat / long 
   * Move a pebble
   * Accept / verify submitted pebble
+
+Note: `prisma/seed.ts` currently has a *template* dataset (real-world
+landmarks, placeholder names) standing in for Tim's actual pebbles —
+swap in the real place/who/when once it's supplied, following the same
+shape.
 
 #### Pebble
 Each pebble has the following associated data:
