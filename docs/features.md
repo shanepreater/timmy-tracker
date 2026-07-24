@@ -62,6 +62,9 @@ Each pebble has the following associated data:
 * Deposited by (text field)
 * Deposited date
 
+### CICD deployment
+The system needs to auto deploy on merge to main using the CICD Pipeline.
+
 ### Fly-by mode
 Use the dates to trace a fly-by across the map highlighting the places in chronological order.
 
