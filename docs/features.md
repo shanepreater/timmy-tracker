@@ -18,6 +18,8 @@ completed items should be read from git history.
   and feature-flag approach.
 * [docs/design-access-control.md](design-access-control.md) - app-wide auth
   gate, whitelist model, and access request workflow.
+* [docs/design-admin-pebbles.md](design-admin-pebbles.md) - admin pebble
+  add/verify/move workflows.
 
 ## Backlog
 
@@ -87,7 +89,8 @@ separate "MVP admin section" entry below.
 ### [ ] MVP admin section
 Design brief:
 Deliver admin pebble management workflows on top of the access-control
-gate and existing pebble storage model.
+gate and existing pebble storage model. See
+[docs/design-admin-pebbles.md](design-admin-pebbles.md).
 
 Scope:
 * Add pebble by lat/long.
