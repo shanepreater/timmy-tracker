@@ -51,6 +51,6 @@ Each pebble has the following associated data:
 * Deposited by (text field)
 * Deposited date
 
-### Fly by mode.
-Use the dates to trace a fly by across the map highlighting the places in chronological order.
+### Fly-by mode
+Use the dates to trace a fly-by across the map highlighting the places in chronological order.
 
