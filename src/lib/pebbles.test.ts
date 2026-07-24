@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
+const create = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { pebble: { findMany } },
+  prisma: { pebble: { findMany, create } },
 }));
 
-const { getVerifiedPebbles } = await import("./pebbles");
+const { getVerifiedPebbles, submitPebble } = await import("./pebbles");
 
 describe("getVerifiedPebbles", () => {
   beforeEach(() => {
@@ -42,5 +43,31 @@ describe("getVerifiedPebbles", () => {
     findMany.mockResolvedValue([pebble]);
 
     await expect(getVerifiedPebbles()).resolves.toEqual([pebble]);
+  });
+});
+
+describe("submitPebble", () => {
+  beforeEach(() => {
+    create.mockReset();
+    create.mockResolvedValue(undefined);
+  });
+
+  it("always creates the pebble as PENDING, regardless of input", async () => {
+    await submitPebble({
+      latitude: 48.8584,
+      longitude: 2.2945,
+      depositedBy: "Sarah",
+      depositedAt: new Date("2026-03-01"),
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+        status: "PENDING",
+      },
+    });
   });
 });
