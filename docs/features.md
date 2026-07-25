@@ -25,6 +25,23 @@ completed items should be read from git history.
 
 ## Backlog
 
+### Proposed delivery order
+
+Recommended sequence for finishing remaining work with minimum rework and
+fastest path to stable production:
+
+1. Close out "Associate a photo with a location" (run real Blob e2e +
+  manual smoke and mark complete).
+2. Complete "Base framework completion" (production env/runtime parity,
+  deployed map wiring, migration/deploy confidence).
+3. Complete "CI/CD pipeline and deployment" (deploy-on-merge + rollback
+  runbook).
+4. Deliver "Fly-by mode" (high user value, no new provider coupling).
+5. Deliver "What3words support" (new provider integration and ops surface).
+
+This order intentionally prioritizes operational reliability and
+production confidence before adding net-new user features.
+
 ### [ ] CI/CD pipeline and deployment
 Design brief:
 Harden and complete delivery automation using the existing GitHub Actions
@@ -191,6 +208,82 @@ Acceptance criteria:
 * Broken/missing media references fail gracefully in UI.
 * Authorization rules are enforced for who can add/remove photos.
 * Feature is behind a dedicated flag and defaults off.
+
+### [ ] Domain launch hardening (trackingtim.com)
+Design brief:
+Harden production cutover for the custom domain and auth flow so launch
+issues are caught by checklist rather than in live traffic.
+
+Acceptance criteria:
+* DNS/SSL ownership and verification steps are documented for
+  `trackingtim.com` and `www.trackingtim.com` (if used).
+* Auth.js Google OAuth callback URLs include local and production hosts,
+  and the expected callback behavior is smoke-tested post-deploy.
+* Production environment variables are listed in one place with owner,
+  source of truth, and last verified date.
+* A post-cutover smoke checklist exists (home, map, submit, admin,
+  access gate sign-in/sign-out).
+
+### [ ] Admin audit trail
+Design brief:
+Record who changed what for sensitive admin actions to improve support,
+debugging, and trust.
+
+Acceptance criteria:
+* Admin actions (verify pebble, move pebble, approve/deny access,
+  remove photo, allowlist changes) persist audit entries.
+* Each entry captures actor identity, action type, target entity,
+  before/after key fields where relevant, and timestamp.
+* Audit entries are queryable for at least basic filtering by action,
+  actor, and date range.
+* Tests cover write-path behavior for each audited action.
+
+### [ ] Backup and restore runbook
+Design brief:
+Create and verify a repeatable recovery process for memorial data.
+
+Acceptance criteria:
+* A documented restore procedure exists for Postgres and Blob data.
+* Recovery roles/responsibilities are documented (who executes restore,
+  who validates results).
+* A test restore is performed in a non-production environment and the
+  outcome is recorded.
+* Recovery checklist includes data verification steps for pebbles,
+  photos, and access control records.
+
+### [ ] Rate limiting and abuse protection
+Design brief:
+Protect write endpoints from accidental or malicious bursts while
+preserving expected user flows.
+
+Acceptance criteria:
+* Rate limits are enforced on submit, request-access, and photo upload
+  write paths.
+* Limit responses are user-readable and do not leak internals.
+* Limits and tuning knobs are documented per route.
+* Tests cover in-limit and over-limit behaviors.
+
+### [ ] Blob storage hygiene
+Design brief:
+Prevent orphaned media and keep storage tidy as photos are removed or
+records change over time.
+
+Acceptance criteria:
+* A safe cleanup workflow exists to detect and optionally remove orphaned
+  blob objects not referenced by `Pebble.photoUrl`.
+* Cleanup supports dry-run mode and logs affected keys/URLs.
+* Cleanup workflow is documented and runnable by maintainers.
+
+### [ ] Error monitoring and alerting
+Design brief:
+Add lightweight production observability so failures are detected early
+and triaged quickly.
+
+Acceptance criteria:
+* Unhandled server-side errors are captured in a monitoring system.
+* Alerts are configured for recurring failures in critical flows
+  (sign-in, submit, admin mutations).
+* Monitoring setup and ownership are documented.
 
 ### [x] UI redesign
 Design brief:
