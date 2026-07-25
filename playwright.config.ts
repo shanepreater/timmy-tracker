@@ -28,6 +28,8 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_FEATURE_MAP: "false",
       NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE: "false",
+      FEATURE_ADMIN: "false",
+      FEATURE_AUTH_GATE: "false",
     },
   },
 });
