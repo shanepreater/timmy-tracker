@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminPebbles } from "./AdminPebbles";
 import type { Pebble } from "@prisma/client";
 
 vi.mock("@/app/admin/actions", () => ({
   verifyPebbleAction: vi.fn(),
   movePebbleAction: vi.fn(),
+  removePebblePhotoAction: vi.fn(),
 }));
 
 vi.mock("@/components/AdminAddPebbleForm", () => ({
@@ -17,6 +18,7 @@ const basePebble: Pebble = {
   latitude: 48.8584,
   longitude: 2.2945,
   depositedBy: "Sarah",
+  photoUrl: null,
   submitterEmail: null,
   depositedAt: new Date("2026-03-01"),
   status: "PENDING",
@@ -25,6 +27,10 @@ const basePebble: Pebble = {
 };
 
 describe("AdminPebbles", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("shows a message when there are no pending submissions", () => {
     render(<AdminPebbles pebbles={[]} />);
 
@@ -51,6 +57,21 @@ describe("AdminPebbles", () => {
     expect(screen.getByRole("button", { name: "Save location" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("48.8584")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2.2945")).toBeInTheDocument();
+  });
+
+  it("shows remove photo controls when the feature is enabled and photoUrl exists", () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    const withPhoto: Pebble = {
+      ...basePebble,
+      id: "p2",
+      status: "VERIFIED",
+      verifiedAt: new Date(),
+      photoUrl: "https://blob.example/photo.webp",
+    };
+
+    render(<AdminPebbles pebbles={[withPhoto]} />);
+
+    expect(screen.getByRole("button", { name: "Remove photo" })).toBeInTheDocument();
   });
 
   it("renders the add-pebble form", () => {

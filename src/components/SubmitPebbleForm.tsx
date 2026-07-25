@@ -10,6 +10,7 @@ const initialState: SubmitPebbleState = { status: "idle" };
 
 export function SubmitPebbleForm() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
   const [state, formAction, isPending] = useActionState(submitPebbleAction, initialState);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -106,6 +107,18 @@ export function SubmitPebbleForm() {
           </span>
         )}
       </label>
+
+      {pebblePhotosEnabled && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
+          Photo (optional)
+          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="input" />
+          {errors.photo && (
+            <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+              {errors.photo}
+            </span>
+          )}
+        </label>
+      )}
 
       <Button type="submit" disabled={isPending} className="self-start">
         {isPending ? "Submitting…" : "Submit pebble"}

@@ -16,6 +16,7 @@ const initialState: AddPebbleState = { status: "idle" };
  */
 export function AdminAddPebbleForm() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
   const [state, formAction, isPending] = useActionState(addPebbleAction, initialState);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -52,7 +53,11 @@ export function AdminAddPebbleForm() {
   }
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-4 max-w-md">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="flex flex-col gap-4 max-w-md"
+    >
       <h3 className="heading-3">Add a pebble</h3>
 
       {state.status === "success" && (
@@ -132,6 +137,18 @@ export function AdminAddPebbleForm() {
           </span>
         )}
       </label>
+
+      {pebblePhotosEnabled && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
+          Photo (optional)
+          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="input" />
+          {errors.photo && (
+            <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+              {errors.photo}
+            </span>
+          )}
+        </label>
+      )}
 
       <Button type="submit" disabled={isPending} className="self-start">
         {isPending ? "Adding…" : "Add pebble"}

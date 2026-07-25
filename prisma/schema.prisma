@@ -17,6 +17,7 @@ model Pebble {
   latitude       Float
   longitude      Float
   depositedBy    String
+  photoUrl       String?
   submitterEmail String?
   depositedAt    DateTime
   status         PebbleStatus @default(PENDING)

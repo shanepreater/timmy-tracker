@@ -13,7 +13,7 @@ export type SubmitPebbleFormValues = {
 };
 
 export type SubmitPebbleFormErrors = Partial<
-  Record<keyof SubmitPebbleFormValues, string>
+  Record<keyof SubmitPebbleFormValues | "photo", string>
 >;
 
 export type ValidateSubmitPebbleResult =

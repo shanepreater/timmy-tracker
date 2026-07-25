@@ -29,6 +29,7 @@ vi.mock("@vis.gl/react-google-maps", () => ({
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "");
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "");
 });
@@ -78,6 +79,7 @@ describe("Map", () => {
       longitude: 2.2945,
       depositedBy: "Sarah",
       depositedAt: new Date("2026-03-01"),
+      photoUrl: null,
     };
 
     beforeEach(() => {
@@ -110,6 +112,17 @@ describe("Map", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("renders a pebble photo in the info window when enabled", async () => {
+      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+      vi.resetModules();
+      const { Map } = await import("./Map");
+      render(<Map pebbles={[{ ...pebble, photoUrl: "https://blob.example/photo.webp" }]} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
+
+      expect(await screen.findByRole("img", { name: "Photo for Sarah" })).toBeInTheDocument();
     });
   });
 });

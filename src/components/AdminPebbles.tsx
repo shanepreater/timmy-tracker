@@ -1,14 +1,16 @@
 import type { Pebble } from "@prisma/client";
-import { verifyPebbleAction, movePebbleAction } from "@/app/admin/actions";
+import { removePebblePhotoAction, verifyPebbleAction, movePebbleAction } from "@/app/admin/actions";
 import { formatPebbleDate } from "@/lib/pebbles";
 import { AdminAddPebbleForm } from "@/components/AdminAddPebbleForm";
 import { Button } from "@/components/Button";
+import { PebblePhoto } from "@/components/PebblePhoto";
 
 type AdminPebblesProps = {
   pebbles: Pebble[];
 };
 
 export function AdminPebbles({ pebbles }: AdminPebblesProps) {
+  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
   const pending = pebbles.filter((pebble) => pebble.status === "PENDING");
   const verified = pebbles.filter((pebble) => pebble.status === "VERIFIED");
 
@@ -22,13 +24,31 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
           <ul className="flex flex-col gap-3">
             {pending.map((pebble) => (
               <li key={pebble.id} className="card flex items-center justify-between gap-4">
-                <span>
-                  {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)} (
-                  {pebble.latitude}, {pebble.longitude})
-                </span>
-                <form action={verifyPebbleAction.bind(null, pebble.id)}>
-                  <Button type="submit">Verify</Button>
-                </form>
+                <div className="flex items-center gap-3">
+                  {pebblePhotosEnabled && pebble.photoUrl && (
+                    <PebblePhoto
+                      src={pebble.photoUrl}
+                      alt={`Photo for ${pebble.depositedBy}`}
+                      className="h-14 w-14"
+                    />
+                  )}
+                  <span>
+                    {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)} (
+                    {pebble.latitude}, {pebble.longitude})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pebblePhotosEnabled && pebble.photoUrl && (
+                    <form action={removePebblePhotoAction.bind(null, pebble.id)}>
+                      <Button type="submit" variant="secondary">
+                        Remove photo
+                      </Button>
+                    </form>
+                  )}
+                  <form action={verifyPebbleAction.bind(null, pebble.id)}>
+                    <Button type="submit">Verify</Button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>
@@ -43,9 +63,27 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
           <ul className="flex flex-col gap-3">
             {verified.map((pebble) => (
               <li key={pebble.id} className="card flex flex-col gap-2">
-                <span>
-                  {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)}
-                </span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {pebblePhotosEnabled && pebble.photoUrl && (
+                      <PebblePhoto
+                        src={pebble.photoUrl}
+                        alt={`Photo for ${pebble.depositedBy}`}
+                        className="h-14 w-14"
+                      />
+                    )}
+                    <span>
+                      {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)}
+                    </span>
+                  </div>
+                  {pebblePhotosEnabled && pebble.photoUrl && (
+                    <form action={removePebblePhotoAction.bind(null, pebble.id)}>
+                      <Button type="submit" variant="secondary">
+                        Remove photo
+                      </Button>
+                    </form>
+                  )}
+                </div>
                 <form
                   action={movePebbleAction.bind(null, pebble.id)}
                   className="flex items-center gap-2"

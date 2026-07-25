@@ -10,7 +10,12 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: ["**/map.spec.ts", "**/submit-place-lookup.spec.ts", "**/admin-pebbles.spec.ts"],
+  testIgnore: [
+    "**/map.spec.ts",
+    "**/submit-place-lookup.spec.ts",
+    "**/admin-pebbles.spec.ts",
+    "**/pebble-photo-upload.spec.ts",
+  ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -28,6 +33,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_FEATURE_MAP: "false",
       NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE: "false",
+      NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS: "false",
       FEATURE_ADMIN: "false",
       FEATURE_AUTH_GATE: "false",
     },
