@@ -22,5 +22,10 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
+    env: {
+      FEATURE_AUTH_GATE: "false",
+      NEXT_PUBLIC_FEATURE_MAP: "true",
+      NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE: "true",
+    },
   },
 });

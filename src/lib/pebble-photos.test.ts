@@ -70,7 +70,10 @@ describe("uploadPebblePhoto", () => {
     resize.mockReturnValue({ webp });
     webp.mockReturnValue({ toBuffer });
     toBuffer.mockResolvedValue(Buffer.from("processed"));
-    put.mockResolvedValue({ url: "https://blob.example/pebbles/photo.webp" });
+    put.mockResolvedValue({
+      url: "https://blob.example/pebbles/photo.webp",
+      downloadUrl: "https://blob.example/pebbles/photo.webp?download=1",
+    });
   });
 
   it("re-encodes to webp and uploads publicly", async () => {
@@ -111,6 +114,31 @@ describe("uploadPebblePhoto", () => {
       }),
     );
     expect(put).not.toHaveBeenCalled();
+  });
+
+  it("falls back to private upload when store rejects public access", async () => {
+    put
+      .mockRejectedValueOnce(new Error("Vercel Blob: Cannot use public access on a private store."))
+      .mockResolvedValueOnce({
+        url: "https://blob.example/private/photo.webp",
+        downloadUrl: "https://blob.example/private/photo.webp?download=1",
+      });
+
+    const url = await uploadPebblePhoto(makeFile({ name: "tim.png", type: "image/png" }));
+
+    expect(put).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^pebbles\//),
+      Buffer.from("processed"),
+      { access: "public", contentType: "image/webp" },
+    );
+    expect(put).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/^pebbles\//),
+      Buffer.from("processed"),
+      { access: "private", contentType: "image/webp" },
+    );
+    expect(url).toBe("https://blob.example/private/photo.webp?download=1");
   });
 });
 

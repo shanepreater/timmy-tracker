@@ -1,6 +1,7 @@
 import type { Pebble } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { SubmitPebbleInput } from "@/lib/pebble-validation";
+import { toPebblePhotoDisplayUrl } from "@/lib/pebble-photo-url";
 
 export type VerifiedPebble = {
   id: string;
@@ -33,7 +34,7 @@ export function formatPebbleDate(date: Date): string {
  * until then.
  */
 export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
-  return prisma.pebble.findMany({
+  const pebbles = await prisma.pebble.findMany({
     where: { status: "VERIFIED" },
     orderBy: { depositedAt: "asc" },
     select: {
@@ -45,6 +46,11 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
       photoUrl: true,
     },
   });
+
+  return pebbles.map((pebble) => ({
+    ...pebble,
+    photoUrl: pebble.photoUrl ? toPebblePhotoDisplayUrl(pebble.photoUrl) : null,
+  }));
 }
 
 /**
@@ -80,9 +86,14 @@ export async function submitPebble(
  * only shows what's already public.
  */
 export async function listAllPebbles(): Promise<Pebble[]> {
-  return prisma.pebble.findMany({
+  const pebbles = await prisma.pebble.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
+
+  return pebbles.map((pebble) => ({
+    ...pebble,
+    photoUrl: pebble.photoUrl ? toPebblePhotoDisplayUrl(pebble.photoUrl) : null,
+  }));
 }
 
 /**
