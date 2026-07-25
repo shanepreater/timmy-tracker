@@ -49,7 +49,9 @@ Acceptance criteria:
   (Postgres, Auth.js, Google Maps where applicable).
 * Prisma migrations apply cleanly in CI and production deploy flow.
 * Map integration can be enabled via `NEXT_PUBLIC_FEATURE_MAP=true` and
-  renders with live API key in deployed environment.
+  renders with a live API key and Map ID
+  (`NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`, required for `AdvancedMarkerElement`
+  markers) in the deployed environment.
 * Smoke test config in `output/configs/` is current and reproducible.
 
 ### [x] User access restrictions

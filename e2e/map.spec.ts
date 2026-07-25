@@ -8,8 +8,12 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
 
-test.skip(!apiKey, "requires a real NEXT_PUBLIC_GOOGLE_MAPS_API_KEY — local only, not run in CI");
+test.skip(
+  !apiKey || !mapId,
+  "requires a real NEXT_PUBLIC_GOOGLE_MAPS_API_KEY and NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID — local only, not run in CI",
+);
 
 test("clicking a pebble marker shows who deposited it and when", async ({ page }) => {
   await page.goto("/");
