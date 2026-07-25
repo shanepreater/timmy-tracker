@@ -31,6 +31,10 @@ constraints the feature's own acceptance criteria already require
 (server-side format/size validation, auth on who can upload) — see
 [Risk: what would actually blow the budget](#risk-what-would-actually-blow-the-budget).
 
+For the full stack, not just photos — including the now-confirmed
+custom domain, the one real recurring cost in this project — see
+[All-in annual hosting estimate](#all-in-annual-hosting-estimate).
+
 ## Context
 
 `docs/design.md` chose Vercel (hosting) and Vercel Postgres/Neon
@@ -176,13 +180,13 @@ traffic scale established above:
 | Neon/Vercel Postgres | 0.5 GB storage, 100 CU-hours compute/month (Free plan) | A few hundred rows total (pebbles + users + requests) — KBs, not GB; compute scales to zero between visits | **$0**, but see the caveat below |
 | Google Maps JavaScript API | 10,000 map loads/month free (per-SKU quota since March 2025, replacing the old pooled $200/month credit) | Tens of page loads/month — ~0.1–1% of the free quota | **$0** |
 | Google Geocoding API | 10,000 requests/month free | Occasional place lookups on submit/add-pebble forms — negligible against the quota | **$0** |
-| Custom domain (optional) | N/A — `*.vercel.app` is free and already what the app resolves to | Not yet decided | **$0** if staying on `*.vercel.app`; **~$10–20/year** for a typical `.com`/`.org` from a registrar if wanted later |
+| Custom domain (confirmed — via GoDaddy) | N/A — `*.vercel.app` is free, but a custom domain has been decided on | `.com` via GoDaddy: ~$5 first year (promo pricing varies), **~$22–23/year on renewal** | **~$22–23/year**, ongoing (renewal rate, not the discounted first-year price) |
 
-**Total: $0/year** as currently planned (default `*.vercel.app`
-domain), or **~$10–20/year** if a custom domain gets added — the only
-line item in this entire stack that isn't inherently free at this
-project's scale, because it's the only one priced as a flat fee rather
-than metered usage.
+**Total: ~$22–23/year** — the domain renewal is the only genuinely
+recurring cost in this entire stack; every metered service above stays
+at $0 given the fixed 150-pebble ceiling. See
+[Custom domain: GoDaddy → Vercel](#custom-domain-godaddy--vercel)
+below for the actual setup steps.
 
 **Caveat worth watching**: Neon's Free plan compute (100 CU-hours/month,
 scale-to-zero when idle) is the one line that depends on *access
@@ -194,6 +198,45 @@ compute allowance in a way flat storage limits can't. Not a risk at
 today's usage, but worth a glance at the Neon dashboard after the
 first month of real traffic once deployed.
 
+## Custom domain: GoDaddy → Vercel
+
+A domain has been decided on; registering it happens in a GoDaddy
+account, which this codebase/agent has no access to (payment and
+account actions are the user's to take) — the below is the plan to
+follow, not something already done.
+
+**Name suggestions** (check availability on GoDaddy — not verified
+here, no live availability lookup was run): `timmytracker.com`,
+`timmytracker.org`, `trackingtim.com`. Matches the name already used
+throughout the app (page title, header text, `README.md`), so no
+rebranding needed once one is registered.
+
+**Connecting a GoDaddy-registered domain to Vercel** (do this only
+once the "CI/CD pipeline and deployment" backlog item has an actual
+Vercel project deployed — a domain has nothing to point at before then):
+
+1. Buy the domain in GoDaddy as normal — don't enable GoDaddy's own
+   website builder/forwarding, since Vercel will be serving the site.
+2. In the Vercel dashboard: **Project → Settings → Domains → Add**,
+   enter the domain (e.g. `timmytracker.com`). Vercel will prompt to
+   also add the `www` subdomain — accept that, it's how visitors
+   typing either form end up in the right place.
+3. Vercel then displays the **exact DNS records to add** for that
+   specific domain/project — an **A** record for the apex domain and a
+   **CNAME** for `www`. Use whatever Vercel's dashboard shows at that
+   moment rather than a value from this doc or any other source; it's
+   project-specific and this doc isn't the source of truth for it.
+4. In GoDaddy: **My Products → DNS → Manage DNS** for the domain, add
+   those exact records (GoDaddy usually pre-populates a placeholder A
+   record/parking page — replace it, don't add alongside it).
+5. Wait for DNS propagation (usually minutes, can take longer) —
+   Vercel's Domains page shows a pending/verified status and
+   auto-issues an SSL certificate once it resolves correctly.
+6. Set the redirect direction (apex → `www` or `www` → apex — either
+   is fine, just pick one) in Vercel's domain settings so visitors
+   always land on one canonical URL rather than the app serving
+   duplicate content at both.
+
 ## Sources
 
 - [Vercel Blob Pricing](https://vercel.com/docs/vercel-blob/usage-and-pricing) — storage/operation/transfer rates, Hobby vs. Pro behavior, worked pricing example
@@ -204,3 +247,5 @@ first month of real traffic once deployed.
 - [AWS S3 Pricing 2026 — Filebase](https://filebase.com/blog/aws-s3-pricing-in-2026-what-youll-actually-pay/) — S3 Standard storage and data-transfer-out rates
 - [Google Maps Platform Pricing](https://developers.google.com/maps/billing-and-pricing/pricing) — Maps JavaScript API and Geocoding API free quotas and per-1,000-request rates
 - [Google Maps Platform pricing FAQ](https://developers.google.com/maps/billing-and-pricing/faq) — confirms the March 2025 change from a pooled $200/month credit to per-SKU free quotas
+- [Vercel: Adding & Configuring a Custom Domain](https://vercel.com/docs/domains/working-with-domains/add-a-domain) — apex A record / subdomain CNAME / nameserver setup options
+- [GoDaddy .com pricing — Cybernews](https://cybernews.com/best-web-hosting/godaddy-review/pricing/) — first-year promotional vs. renewal pricing
