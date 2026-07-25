@@ -92,6 +92,7 @@ export async function createPebbleByAdmin(input: SubmitPebbleInput): Promise<voi
       latitude: input.latitude,
       longitude: input.longitude,
       depositedBy: input.depositedBy,
+      submitterEmail: null,
       depositedAt: input.depositedAt,
       status: "VERIFIED",
       verifiedAt: new Date(),

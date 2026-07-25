@@ -135,6 +135,7 @@ describe("createPebbleByAdmin", () => {
         latitude: 48.8584,
         longitude: 2.2945,
         depositedBy: "Sarah",
+        submitterEmail: null,
         depositedAt: new Date("2026-03-01"),
         status: "VERIFIED",
         verifiedAt: expect.any(Date),
