@@ -18,6 +18,8 @@ completed items should be read from git history.
   and feature-flag approach.
 * [docs/design-access-control.md](design-access-control.md) - app-wide auth
   gate, whitelist model, and access request workflow.
+* [docs/design-admin-pebbles.md](design-admin-pebbles.md) - admin pebble
+  add/verify/move workflows.
 
 ## Backlog
 
@@ -84,24 +86,40 @@ with the right `callbackUrl`, and the real Google sign-in page renders.
 Not yet covered: admin pebble management (add/move/verify) — that's the
 separate "MVP admin section" entry below.
 
-### [ ] MVP admin section
+### [x] MVP admin section
 Design brief:
 Deliver admin pebble management workflows on top of the access-control
-gate and existing pebble storage model.
+gate and existing pebble storage model. See
+[docs/design-admin-pebbles.md](design-admin-pebbles.md).
 
 Scope:
-* Add pebble by lat/long.
-* Add pebble by place lookup (reuse existing lookup component behavior).
-* Move pebble location.
-* Accept or verify submitted pebbles.
+* [x] Add pebble by lat/long.
+* [x] Add pebble by place lookup (reuse existing lookup component behavior).
+* [x] Move pebble location.
+* [x] Accept or verify submitted pebbles.
 
 Acceptance criteria:
-* All admin pebble mutations require admin authorization.
-* Newly submitted pebbles remain `PENDING` until verified.
-* Verified pebbles appear on map data source; pending ones do not.
-* Move workflow updates persisted coordinates and is reflected on map.
-* All flows are covered by unit/integration tests, plus at least one
-  end-to-end admin path.
+* [x] All admin pebble mutations require admin authorization
+  (`assertAdminFeatureEnabled()` + `requireAdmin()`, checked
+  independently in `addPebbleAction`/`verifyPebbleAction`/
+  `movePebbleAction`, same as every other admin action).
+* [x] Newly submitted pebbles remain `PENDING` until verified (unchanged
+  — admin-added pebbles are the one exception, created already
+  `VERIFIED` since there's no separate submitter to verify against).
+* [x] Verified pebbles appear on map data source; pending ones do not
+  (unchanged `getVerifiedPebbles()`; both admin actions that touch
+  public data `revalidatePath("/")` alongside `/admin`).
+* [x] Move workflow updates persisted coordinates and is reflected on
+  map.
+* [x] All flows are covered by unit/integration tests (data layer,
+  actions, UI — 26 new/updated test files), plus a local-only end-to-end
+  admin path (`e2e/admin-pebbles.spec.ts`, real Postgres + a mocked
+  NextAuth session, not run in CI — see
+  [docs/design-admin-pebbles.md](design-admin-pebbles.md)) and a manual
+  browser smoke test.
+
+Delivered behind the existing `FEATURE_ADMIN` flag — no new flag needed
+since this is new functionality on an already-gated surface.
 
 ### [ ] Fly-by mode
 Design brief:
@@ -146,6 +164,10 @@ Acceptance criteria:
 Design brief:
 Redesign the visual layer to a more intentional Material-inspired system
 while preserving existing feature flags and behaviors.
+
+The admin screen should have a tab header for the different sections rather than a continuous list.
+
+There should be a standard header at the top with a logo which allows users to easily get back to the main home screen.
 
 Acceptance criteria:
 * Shared design tokens are defined (color, spacing, type scale,

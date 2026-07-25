@@ -1,26 +1,46 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
-import { submitPebbleAction, type SubmitPebbleState } from "@/app/submit/actions";
+import { addPebbleAction, type AddPebbleState } from "@/app/admin/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
 
-const initialState: SubmitPebbleState = { status: "idle" };
+const initialState: AddPebbleState = { status: "idle" };
 
-export function SubmitPebbleForm() {
+/**
+ * Admin-only equivalent of SubmitPebbleForm: same fields and place-lookup
+ * behavior, but creates the pebble already VERIFIED (see
+ * docs/design-admin-pebbles.md), and stays on the form after success —
+ * an admin adding pebbles is likely to add several in a row.
+ */
+export function AdminAddPebbleForm() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const [state, formAction, isPending] = useActionState(submitPebbleAction, initialState);
+  const [state, formAction, isPending] = useActionState(addPebbleAction, initialState);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  if (state.status === "success") {
-    return (
-      <p role="status" className="text-lg">
-        Thank you — your pebble has been submitted and is awaiting review.
-      </p>
-    );
+  // Reset the form after a successful add — an admin adding pebbles is
+  // likely to add several in a row. Cleared during render, guarded by
+  // comparing against the last-seen state (React's "adjusting state"
+  // pattern: https://react.dev/learn/you-might-not-need-an-effect),
+  // rather than in an effect that would setState after the DOM commits.
+  const [handledState, setHandledState] = useState(state);
+  if (handledState !== state) {
+    setHandledState(state);
+    if (state.status === "success") {
+      setLatitude("");
+      setLongitude("");
+      setResolvedAddress(null);
+    }
   }
+
+  useEffect(() => {
+    if (state.status === "success") {
+      formRef.current?.reset();
+    }
+  }, [state]);
 
   const errors = state.status === "error" ? state.errors : {};
 
@@ -31,7 +51,13 @@ export function SubmitPebbleForm() {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-md">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4 max-w-md">
+      <h3 className="text-lg font-semibold">Add a pebble</h3>
+
+      {state.status === "success" && (
+        <p role="status">Pebble added and verified.</p>
+      )}
+
       {apiKey && (
         <APIProvider apiKey={apiKey}>
           <PlaceLookup onResolved={handleResolved} />
@@ -89,7 +115,7 @@ export function SubmitPebbleForm() {
       </label>
 
       <button type="submit" disabled={isPending}>
-        {isPending ? "Submitting…" : "Submit pebble"}
+        {isPending ? "Adding…" : "Add pebble"}
       </button>
     </form>
   );

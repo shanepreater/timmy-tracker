@@ -100,6 +100,7 @@ npm test                 # Vitest (unit)
 npm run test:integration # Vitest against real Postgres
 npm run test:e2e         # Playwright — CI-safe, every feature flag off
 npm run test:e2e:map     # Playwright — real Google Maps, needs your .env.local key, local only
+npm run test:e2e:admin   # Playwright — real local Postgres + admin flow, local only
 npm run build            # Production build
 ```
 
@@ -108,6 +109,12 @@ rendering and the submit form's place-name lookup (Geocoding API) — so
 it's not run in CI (see `docs/design.md`). Each spec skips itself
 automatically if `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't set in
 `.env.local`.
+
+`npm run test:e2e:admin` exercises the admin pebble flow (add/verify/
+move) against your local Postgres, signed in via a mocked NextAuth
+session rather than real Google OAuth — see
+`docs/design-admin-pebbles.md`. It skips itself unless `DATABASE_URL`,
+`AUTH_SECRET`, and `FEATURE_ADMIN="true"` are all set locally.
 
 CI also lints `scripts/*.sh` with [shellcheck](https://www.shellcheck.net/)
 and the workflow files under `.github/workflows/` with

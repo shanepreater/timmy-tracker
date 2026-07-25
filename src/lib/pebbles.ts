@@ -1,3 +1,4 @@
+import type { Pebble } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { SubmitPebbleInput } from "@/lib/pebble-validation";
 
@@ -67,5 +68,58 @@ export async function submitPebble(
       depositedAt: input.depositedAt,
       status: "PENDING",
     },
+  });
+}
+
+/**
+ * Every pebble, for the admin view — unlike getVerifiedPebbles(), which
+ * only shows what's already public.
+ */
+export async function listAllPebbles(): Promise<Pebble[]> {
+  return prisma.pebble.findMany({
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+}
+
+/**
+ * An admin typing in a pebble directly is trusted input with no separate
+ * submitter to verify against, so it's created already VERIFIED with no
+ * submitterEmail — see docs/design-admin-pebbles.md.
+ */
+export async function createPebbleByAdmin(input: SubmitPebbleInput): Promise<void> {
+  await prisma.pebble.create({
+    data: {
+      latitude: input.latitude,
+      longitude: input.longitude,
+      depositedBy: input.depositedBy,
+      submitterEmail: null,
+      depositedAt: input.depositedAt,
+      status: "VERIFIED",
+      verifiedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Two admins verifying the same pebble at once isn't destructive — both
+ * writes converge on the same end state — so this is a plain update, not
+ * the conditional updateMany pattern access-requests.ts uses for a race
+ * that actually loses data. See docs/design-admin-pebbles.md.
+ */
+export async function verifyPebble(id: string): Promise<void> {
+  await prisma.pebble.update({
+    where: { id },
+    data: { status: "VERIFIED", verifiedAt: new Date() },
+  });
+}
+
+export async function movePebble(
+  id: string,
+  latitude: number,
+  longitude: number,
+): Promise<void> {
+  await prisma.pebble.update({
+    where: { id },
+    data: { latitude, longitude },
   });
 }

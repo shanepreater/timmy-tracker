@@ -6,6 +6,9 @@ const denyAccessRequest = vi.fn();
 const addAllowedUser = vi.fn();
 const removeAllowedUser = vi.fn();
 const setAllowedUserAdmin = vi.fn();
+const createPebbleByAdmin = vi.fn();
+const verifyPebble = vi.fn();
+const movePebble = vi.fn();
 const revalidatePath = vi.fn();
 
 vi.mock("@/lib/auth-guards", () => ({ requireAdmin }));
@@ -15,6 +18,7 @@ vi.mock("@/lib/allowed-users", () => ({
   removeAllowedUser,
   setAllowedUserAdmin,
 }));
+vi.mock("@/lib/pebbles", () => ({ createPebbleByAdmin, verifyPebble, movePebble }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 // Stubbed before the static import below, so featureFlags.admin is
@@ -28,7 +32,17 @@ const {
   addAllowedUserAction,
   removeAllowedUserAction,
   toggleAllowedUserAdminAction,
+  addPebbleAction,
+  verifyPebbleAction,
+  movePebbleAction,
 } = await import("./actions");
+
+const VALID_PEBBLE_FIELDS = {
+  latitude: "48.8584",
+  longitude: "2.2945",
+  depositedBy: "Sarah",
+  depositedAt: "2026-03-01",
+};
 
 beforeEach(() => {
   requireAdmin.mockReset();
@@ -37,6 +51,9 @@ beforeEach(() => {
   addAllowedUser.mockReset();
   removeAllowedUser.mockReset();
   setAllowedUserAdmin.mockReset();
+  createPebbleByAdmin.mockReset();
+  verifyPebble.mockReset();
+  movePebble.mockReset();
   revalidatePath.mockReset();
 });
 
@@ -84,6 +101,19 @@ describe("admin actions require FEATURE_ADMIN", () => {
     await expect(
       disabled.toggleAllowedUserAdminAction("u1", false, formData()),
     ).rejects.toThrow("isn't enabled");
+    await expect(disabled.verifyPebbleAction("p1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(
+      disabled.movePebbleAction("p1", formData({ latitude: "1", longitude: "2" })),
+    ).rejects.toThrow("isn't enabled");
+
+    const addPebbleResult = await disabled.addPebbleAction(
+      { status: "idle" },
+      formData(VALID_PEBBLE_FIELDS),
+    );
+    expect(addPebbleResult.status).toBe("error");
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
 
     expect(requireAdmin).not.toHaveBeenCalled();
   });
@@ -149,5 +179,80 @@ describe("toggleAllowedUserAdminAction", () => {
 
     expect(setAllowedUserAdmin).toHaveBeenCalledWith("u1", false);
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+});
+
+describe("addPebbleAction", () => {
+  it("rejects when requireAdmin throws, without creating a pebble", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(
+      addPebbleAction({ status: "idle" }, formData(VALID_PEBBLE_FIELDS)),
+    ).rejects.toThrow("Admin access required.");
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
+  });
+
+  it("creates the pebble and revalidates both / and /admin on success", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    const result = await addPebbleAction({ status: "idle" }, formData(VALID_PEBBLE_FIELDS));
+
+    expect(result).toEqual({ status: "success" });
+    expect(createPebbleByAdmin).toHaveBeenCalledWith({
+      latitude: 48.8584,
+      longitude: 2.2945,
+      depositedBy: "Sarah",
+      depositedAt: new Date("2026-03-01"),
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("returns field errors and doesn't create a pebble on invalid input", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    const result = await addPebbleAction(
+      { status: "idle" },
+      formData({ ...VALID_PEBBLE_FIELDS, latitude: "not-a-number" }),
+    );
+
+    expect(result).toEqual({
+      status: "error",
+      errors: { latitude: "Enter a latitude between -90 and 90." },
+    });
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifyPebbleAction", () => {
+  it("verifies by id and revalidates both / and /admin", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await verifyPebbleAction("p1", formData());
+
+    expect(verifyPebble).toHaveBeenCalledWith("p1");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+});
+
+describe("movePebbleAction", () => {
+  it("moves to the new coordinates and revalidates both / and /admin", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await movePebbleAction("p1", formData({ latitude: "10", longitude: "20" }));
+
+    expect(movePebble).toHaveBeenCalledWith("p1", 10, 20);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("does nothing on invalid coordinates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await movePebbleAction("p1", formData({ latitude: "not-a-number", longitude: "20" }));
+
+    expect(movePebble).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

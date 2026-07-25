@@ -16,7 +16,7 @@ export function ManageUsers({ allowedUsers, pendingRequests }: ManageUsersProps)
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Pending requests</h2>
+        <h3 className="text-xl font-semibold">Pending requests</h3>
         {pendingRequests.length === 0 ? (
           <p className="text-zinc-600 dark:text-zinc-400">No pending requests.</p>
         ) : (
@@ -45,7 +45,7 @@ export function ManageUsers({ allowedUsers, pendingRequests }: ManageUsersProps)
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Allowed users</h2>
+        <h3 className="text-xl font-semibold">Allowed users</h3>
         <ul className="flex flex-col gap-3">
           {allowedUsers.map((user) => (
             <li
