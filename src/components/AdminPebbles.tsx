@@ -2,6 +2,7 @@ import type { Pebble } from "@prisma/client";
 import { verifyPebbleAction, movePebbleAction } from "@/app/admin/actions";
 import { formatPebbleDate } from "@/lib/pebbles";
 import { AdminAddPebbleForm } from "@/components/AdminAddPebbleForm";
+import { Button } from "@/components/Button";
 
 type AdminPebblesProps = {
   pebbles: Pebble[];
@@ -14,22 +15,19 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-4">
-        <h3 className="text-xl font-semibold">Pending pebbles</h3>
+        <h3 className="heading-3">Pending pebbles</h3>
         {pending.length === 0 ? (
-          <p className="text-zinc-600 dark:text-zinc-400">No pending submissions.</p>
+          <p className="text-stone-600 dark:text-stone-400">No pending submissions.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {pending.map((pebble) => (
-              <li
-                key={pebble.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"
-              >
+              <li key={pebble.id} className="card flex items-center justify-between gap-4">
                 <span>
                   {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)} (
                   {pebble.latitude}, {pebble.longitude})
                 </span>
                 <form action={verifyPebbleAction.bind(null, pebble.id)}>
-                  <button type="submit">Verify</button>
+                  <Button type="submit">Verify</Button>
                 </form>
               </li>
             ))}
@@ -38,16 +36,13 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h3 className="text-xl font-semibold">Verified pebbles</h3>
+        <h3 className="heading-3">Verified pebbles</h3>
         {verified.length === 0 ? (
-          <p className="text-zinc-600 dark:text-zinc-400">No verified pebbles yet.</p>
+          <p className="text-stone-600 dark:text-stone-400">No verified pebbles yet.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {verified.map((pebble) => (
-              <li
-                key={pebble.id}
-                className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"
-              >
+              <li key={pebble.id} className="card flex flex-col gap-2">
                 <span>
                   {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)}
                 </span>
@@ -55,7 +50,7 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                   action={movePebbleAction.bind(null, pebble.id)}
                   className="flex items-center gap-2"
                 >
-                  <label className="flex items-center gap-1">
+                  <label className="flex items-center gap-1 text-sm text-stone-700 dark:text-stone-300">
                     Lat
                     <input
                       name="latitude"
@@ -65,9 +60,10 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                       max={90}
                       required
                       defaultValue={pebble.latitude}
+                      className="input w-28"
                     />
                   </label>
-                  <label className="flex items-center gap-1">
+                  <label className="flex items-center gap-1 text-sm text-stone-700 dark:text-stone-300">
                     Long
                     <input
                       name="longitude"
@@ -77,9 +73,12 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                       max={180}
                       required
                       defaultValue={pebble.longitude}
+                      className="input w-28"
                     />
                   </label>
-                  <button type="submit">Save location</button>
+                  <Button type="submit" variant="secondary">
+                    Save location
+                  </Button>
                 </form>
               </li>
             ))}

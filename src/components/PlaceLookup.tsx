@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
+import { Button } from "@/components/Button";
 
 export type ResolvedPlace = {
   latitude: number;
@@ -56,12 +57,13 @@ export function PlaceLookup({ onResolved }: PlaceLookupProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-      <label className="flex flex-col gap-1">
+    <div className="card flex flex-col gap-2 p-4">
+      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Look up a place (optional)
         <div className="flex gap-2">
           <input
             type="text"
+            className="input flex-1"
             value={placeName}
             onChange={(event) => {
               setPlaceName(event.target.value);
@@ -69,16 +71,21 @@ export function PlaceLookup({ onResolved }: PlaceLookupProps) {
             }}
             placeholder="e.g. Eiffel Tower, Paris"
           />
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleLookup}
             disabled={!geocodingLibrary || isLoading || !placeName.trim()}
           >
             {isLoading ? "Looking up…" : "Look up"}
-          </button>
+          </Button>
         </div>
       </label>
-      {error && <span role="alert">{error}</span>}
+      {error && (
+        <span role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

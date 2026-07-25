@@ -20,6 +20,8 @@ completed items should be read from git history.
   gate, whitelist model, and access request workflow.
 * [docs/design-admin-pebbles.md](design-admin-pebbles.md) - admin pebble
   add/verify/move workflows.
+* [docs/design-ui-redesign.md](design-ui-redesign.md) - design tokens,
+  shared primitives, and the Tim-photo header/favicon treatment.
 
 ## Backlog
 
@@ -162,25 +164,43 @@ Acceptance criteria:
 * Authorization rules are enforced for who can add/remove photos.
 * Feature is behind a dedicated flag and defaults off.
 
-### [ ] UI redesign
+### [x] UI redesign
 Design brief:
-Redesign the visual layer to a more intentional Material-inspired system
-while preserving existing feature flags and behaviors.
+Redesign the visual layer to a more intentional design-token-driven
+system while preserving existing feature flags and behaviors. See
+[docs/design-ui-redesign.md](design-ui-redesign.md) (deviates from the
+original "Material-inspired" phrasing below — see that doc's decision
+table for why).
 
-The admin screen should have a tab header for the different sections rather than a continuous list.
-
-There should be a standard header at the top with a logo which allows users to easily get back to the main home screen.
+* [x] The admin screen has a tab header for the different sections
+  (`AdminTabs`, `?tab=access|pebbles`) rather than a continuous list.
+* [x] There's a standard header at the top with a logo (Tim's photo)
+  which allows users to easily get back to the main home screen
+  (`SiteHeader`, present on every page regardless of auth-gate state).
 
 Acceptance criteria:
-* Shared design tokens are defined (color, spacing, type scale,
-  elevation/state styles).
-* Core screens (home/map, submit, auth-gated states, admin) use the new
-  visual system consistently.
-* Responsive layout works on common mobile and desktop widths.
-* Accessibility baseline is met (keyboard navigation, visible focus,
-  contrast checks, semantic headings/landmarks).
-* Existing functional tests remain green; visual update does not regress
-  core workflows.
+* [x] Shared design tokens are defined (color, spacing, type scale,
+  elevation/state styles) — `src/app/globals.css`'s `@theme` block and
+  `.heading-*`/`.card`/`.input`/`.link` component classes.
+* [x] Core screens (home/map, submit, auth-gated states, admin) use the
+  new visual system consistently — every native `<button>`/list-row/
+  input across the app moved to the shared primitives (`Button`,
+  `ButtonLink`, `PageContainer`, `.card`, `.input`).
+* [x] Responsive layout works on common mobile and desktop widths —
+  checked at 375px and 1280px.
+* [x] Accessibility baseline is met: explicit `focus-visible` rings on
+  every interactive element (none existed before), WCAG AA contrast
+  verified for the new palette in both light and dark mode (weakest
+  pair 4.83:1, all others comfortably higher), single `h1` per page
+  with consistently-nested `h2`/`h3` subsections.
+* [x] Existing functional tests remain green — every restyled component
+  kept its DOM shape (real `<button>`/`<input>`, same accessible roles/
+  text), so no test rewrites were needed, only re-runs.
+
+Also fixed along the way: `proxy.ts`'s auth-gate matcher never exempted
+`public/` static assets, so `/tim.jpg` (the header logo/favicon source)
+itself redirected to sign-in once `FEATURE_AUTH_GATE` was on — see
+[docs/design-ui-redesign.md](design-ui-redesign.md) for detail.
 
 ## Domain data contract: Pebble
 

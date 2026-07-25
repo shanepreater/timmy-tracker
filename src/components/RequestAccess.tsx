@@ -1,5 +1,6 @@
 import { getPendingAccessRequest } from "@/lib/access-requests";
 import { RequestAccessButton } from "@/components/RequestAccessButton";
+import { PageContainer } from "@/components/PageContainer";
 
 type RequestAccessProps = {
   email: string;
@@ -10,9 +11,9 @@ export async function RequestAccess({ email, name }: RequestAccessProps) {
   const pending = await getPendingAccessRequest(email);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-4 px-6 py-16 text-center">
-      <h1 className="text-2xl font-semibold">This site is invite-only</h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
+    <PageContainer maxWidth="md" gap={4} className="items-center text-center">
+      <h1 className="heading-2">This site is invite-only</h1>
+      <p className="text-stone-600 dark:text-stone-400">
         {name ? `Hi ${name} — y` : "Y"}ou&apos;re signed in as {email}, but that account isn&apos;t
         on the list yet.
       </p>
@@ -21,6 +22,6 @@ export async function RequestAccess({ email, name }: RequestAccessProps) {
       ) : (
         <RequestAccessButton />
       )}
-    </main>
+    </PageContainer>
   );
 }

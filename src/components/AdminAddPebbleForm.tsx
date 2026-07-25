@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { addPebbleAction, type AddPebbleState } from "@/app/admin/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
+import { Button } from "@/components/Button";
 
 const initialState: AddPebbleState = { status: "idle" };
 
@@ -52,7 +53,7 @@ export function AdminAddPebbleForm() {
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4 max-w-md">
-      <h3 className="text-lg font-semibold">Add a pebble</h3>
+      <h3 className="heading-3">Add a pebble</h3>
 
       {state.status === "success" && (
         <p role="status">Pebble added and verified.</p>
@@ -65,58 +66,76 @@ export function AdminAddPebbleForm() {
       )}
 
       {resolvedAddress && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-stone-600 dark:text-stone-400">
           Resolved to: {resolvedAddress}
         </p>
       )}
 
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Latitude
         <input
           name="latitude"
           type="text"
           inputMode="decimal"
           required
+          className="input"
           value={latitude}
           onChange={(event) => {
             setLatitude(event.target.value);
             setResolvedAddress(null);
           }}
         />
-        {errors.latitude && <span role="alert">{errors.latitude}</span>}
+        {errors.latitude && (
+          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+            {errors.latitude}
+          </span>
+        )}
       </label>
 
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Longitude
         <input
           name="longitude"
           type="text"
           inputMode="decimal"
           required
+          className="input"
           value={longitude}
           onChange={(event) => {
             setLongitude(event.target.value);
             setResolvedAddress(null);
           }}
         />
-        {errors.longitude && <span role="alert">{errors.longitude}</span>}
+        {errors.longitude && (
+          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+            {errors.longitude}
+          </span>
+        )}
       </label>
 
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Deposited by
-        <input name="depositedBy" type="text" required />
-        {errors.depositedBy && <span role="alert">{errors.depositedBy}</span>}
+        <input name="depositedBy" type="text" required className="input" />
+        {errors.depositedBy && (
+          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+            {errors.depositedBy}
+          </span>
+        )}
       </label>
 
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Date deposited
-        <input name="depositedAt" type="date" required />
-        {errors.depositedAt && <span role="alert">{errors.depositedAt}</span>}
+        <input name="depositedAt" type="date" required className="input" />
+        {errors.depositedAt && (
+          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+            {errors.depositedAt}
+          </span>
+        )}
       </label>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-start">
         {isPending ? "Adding…" : "Add pebble"}
-      </button>
+      </Button>
     </form>
   );
 }

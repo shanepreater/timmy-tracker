@@ -35,7 +35,7 @@ export function Map({ pebbles }: MapProps) {
     return (
       <div
         role="status"
-        className="flex h-96 w-full items-center justify-center rounded-lg border border-dashed border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+        className="flex h-96 w-full items-center justify-center rounded-lg border border-dashed border-stone-300 text-stone-500 dark:border-stone-700 dark:text-stone-400"
       >
         Map coming soon.
       </div>
@@ -68,7 +68,7 @@ export function Map({ pebbles }: MapProps) {
             position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
             onCloseClick={() => setSelectedPebbleId(null)}
           >
-            <div className="flex flex-col gap-1 text-sm text-zinc-900">
+            <div className="flex flex-col gap-1 text-sm text-stone-900">
               <span className="font-semibold">{selectedPebble.depositedBy}</span>
               <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
             </div>
