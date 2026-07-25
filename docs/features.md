@@ -186,6 +186,8 @@ Implementation progress:
   `removePebblePhotoAction`) with unit tests.
 * [x] Submit/admin UI upload controls + map/admin photo display
   (`PebblePhoto` component with graceful fallback).
+* [x] Map pins show a thumbnail marker when a pebble has `photoUrl` and
+  photo features are enabled.
 * [x] Feature flag + env/config + local-only Blob e2e test scaffold.
 * [x] Lint + unit + integration + CI-safe e2e checks run.
 * [ ] Real Blob e2e execution (`npm run test:e2e:blob`) with a configured
