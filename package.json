@@ -12,6 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:map": "playwright test --config=playwright.map.config.ts",
+    "test:e2e:admin": "playwright test --config=playwright.admin.config.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"
   },
@@ -24,6 +25,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@auth/core": "^0.41.3",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6",
