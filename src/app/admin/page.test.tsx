@@ -39,13 +39,17 @@ afterEach(() => {
   vi.resetModules();
 });
 
+function searchParams(tab?: string) {
+  return Promise.resolve({ tab });
+}
+
 describe("AdminPage", () => {
   it("calls notFound when FEATURE_ADMIN is off", async () => {
     vi.stubEnv("FEATURE_ADMIN", "");
     vi.resetModules();
     const { default: AdminPage } = await import("./page");
 
-    await expect(AdminPage()).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(AdminPage({ searchParams: searchParams() })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(getAllowedUser).not.toHaveBeenCalled();
   });
 
@@ -54,11 +58,11 @@ describe("AdminPage", () => {
     getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: false });
     const { default: AdminPage } = await import("./page");
 
-    await expect(AdminPage()).rejects.toThrow("NEXT_REDIRECT");
+    await expect(AdminPage({ searchParams: searchParams() })).rejects.toThrow("NEXT_REDIRECT");
     expect(redirect).toHaveBeenCalledWith("/");
   });
 
-  it("renders ManageUsers and AdminPebbles with data when isAdmin", async () => {
+  it("defaults to the access tab, with a single h1 and the section as h2", async () => {
     vi.resetModules();
     getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
     listAllowedUsers.mockResolvedValue([]);
@@ -66,13 +70,42 @@ describe("AdminPage", () => {
     listAllPebbles.mockResolvedValue([]);
     const { default: AdminPage } = await import("./page");
 
-    render(await AdminPage());
+    render(await AdminPage({ searchParams: searchParams() }));
 
-    // A single h1 with h2 subsections, not two competing h1s.
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 2, name: /manage access/i })).toBeInTheDocument();
     expect(screen.getByTestId("manage-users")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-pebbles")).not.toBeInTheDocument();
+  });
+
+  it("shows the pebbles tab when ?tab=pebbles", async () => {
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams("pebbles") }));
+
     expect(screen.getByRole("heading", { level: 2, name: /manage pebbles/i })).toBeInTheDocument();
     expect(screen.getByTestId("admin-pebbles")).toBeInTheDocument();
+    expect(screen.queryByTestId("manage-users")).not.toBeInTheDocument();
+  });
+
+  it("shows tab navigation to switch between sections", async () => {
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams() }));
+
+    const accessTab = screen.getByRole("link", { name: /manage access/i });
+    const pebblesTab = screen.getByRole("link", { name: /manage pebbles/i });
+    expect(accessTab).toHaveAttribute("aria-current", "page");
+    expect(pebblesTab).toHaveAttribute("href", "/admin?tab=pebbles");
   });
 });

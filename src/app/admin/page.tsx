@@ -7,6 +7,7 @@ import { listAllPebbles } from "@/lib/pebbles";
 import { ManageUsers } from "@/components/ManageUsers";
 import { AdminPebbles } from "@/components/AdminPebbles";
 import { PageContainer } from "@/components/PageContainer";
+import { AdminTabs, type AdminTab } from "@/components/AdminTabs";
 
 // Session/whitelist-dependent on every request, and featureFlags.admin
 // needs to be re-checked per request too — without this, a build where
@@ -14,7 +15,11 @@ import { PageContainer } from "@/components/PageContainer";
 // forever, the same gotcha src/app/page.tsx already works around.
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+type AdminPageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function AdminPage({ searchParams }: AdminPageProps) {
   if (!featureFlags.admin) {
     notFound();
   }
@@ -24,6 +29,9 @@ export default async function AdminPage() {
     redirect("/");
   }
 
+  const { tab } = await searchParams;
+  const activeTab: AdminTab = tab === "pebbles" ? "pebbles" : "access";
+
   const [allowedUsers, pendingRequests, pebbles] = await Promise.all([
     listAllowedUsers(),
     listPendingAccessRequests(),
@@ -31,16 +39,20 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <PageContainer maxWidth="4xl" gap={16}>
+    <PageContainer maxWidth="4xl">
       <h1 className="heading-1">Admin</h1>
-      <div className="flex flex-col gap-8">
-        <h2 className="heading-2">Manage access</h2>
-        <ManageUsers allowedUsers={allowedUsers} pendingRequests={pendingRequests} />
-      </div>
-      <div className="flex flex-col gap-8">
-        <h2 className="heading-2">Manage pebbles</h2>
-        <AdminPebbles pebbles={pebbles} />
-      </div>
+      <AdminTabs active={activeTab} />
+      {activeTab === "access" ? (
+        <div className="flex flex-col gap-8">
+          <h2 className="heading-2">Manage access</h2>
+          <ManageUsers allowedUsers={allowedUsers} pendingRequests={pendingRequests} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-8">
+          <h2 className="heading-2">Manage pebbles</h2>
+          <AdminPebbles pebbles={pebbles} />
+        </div>
+      )}
     </PageContainer>
   );
 }

@@ -85,6 +85,7 @@ test("admin can verify a pending pebble, add one, and move it", async ({ page, c
   await signInAsAdmin(context);
   await page.goto("/admin");
 
+  await page.getByRole("link", { name: "Manage pebbles" }).click();
   await expect(page.getByRole("heading", { name: "Manage pebbles" })).toBeVisible();
 
   const pendingSection = page.locator("section", {
