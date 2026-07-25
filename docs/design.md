@@ -26,7 +26,7 @@ that anticipates scale this project will never see.
 | Maps | Google Maps JavaScript API via `@vis.gl/react-google-maps` | Google's own maintained React wrapper; matches the project's stated Google Maps integration. |
 | Place lookup | Geocoding API, called client-side via `useMapsLibrary("geocoding")` | Reuses the same `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and referrer restriction as the map — no second credential or server-side key needed. Lets submitters type a place name instead of knowing exact coordinates; falls back to manual lat/long entry if the API key/lookup isn't available. |
 | Styling | Tailwind CSS | Keeps styling co-located with markup, no separate CSS architecture to design for a site this size. |
-| Testing | Vitest + React Testing Library (unit/component), Playwright (E2E) | Fast, ESM-native, standard pairing for Next.js App Router components. Playwright's E2E suite is split in two: `playwright.config.ts` (CI-safe, every feature flag forced off, no external services) and `playwright.map.config.ts` (local-only — exercises the real Google Maps integration against your own API key, deliberately kept out of CI to avoid depending on a paid external service in the merge gate). |
+| Testing | Vitest + React Testing Library (unit/component), Playwright (E2E) | Fast, ESM-native, standard pairing for Next.js App Router components. Playwright's E2E suite is split three ways: `playwright.config.ts` (CI-safe, every feature flag forced off, no external services), `playwright.map.config.ts` (local-only — real Google Maps integration against your own API key, kept out of CI to avoid a paid external service in the merge gate), and `playwright.admin.config.ts` (local-only — real local Postgres and a mocked NextAuth session, kept out of CI's zero-dependency e2e job rather than adding a database service there; see `docs/design-admin-pebbles.md`). |
 | CI | GitHub Actions (lint, shellcheck, actionlint, test, build, gitleaks secrets scan on every push/PR) | Gives us a merge gate immediately. Automated *deployment* is intentionally out of scope here — see [Deferred](#deferred). |
 
 ## Data model
@@ -88,14 +88,16 @@ src/
   app/                # Next.js App Router pages
     layout.tsx        # Wraps children in AuthGate
     page.tsx          # Home: intro + map
-    admin/            # Manage-users UI + actions, gated by requireAdmin()
+    admin/            # Manage-users + manage-pebbles UI + actions, gated by requireAdmin()
   components/
     Map.tsx            # Google Maps embed, gated by featureFlags.map
     AuthGate.tsx        # Whitelist check + RequestAccess/AppHeader (docs/design-access-control.md)
+    PlaceLookup.tsx      # Geocoding lookup, shared by SubmitPebbleForm and AdminAddPebbleForm
   lib/
     feature-flags.ts
     prisma.ts          # Prisma client singleton
     auth-guards.ts      # requireAllowedUser()/requireAdmin(), used by every mutating action
+    pebbles.ts           # Pebble data layer, including admin add/verify/move (docs/design-admin-pebbles.md)
   proxy.ts             # Edge auth check (formerly middleware.ts, renamed in Next.js 16)
   auth.ts              # Auth.js (NextAuth) config
 prisma/
@@ -104,6 +106,7 @@ e2e/
   home.spec.ts               # CI-safe Playwright test (playwright.config.ts)
   map.spec.ts                # Local-only, real Maps key (playwright.map.config.ts)
   submit-place-lookup.spec.ts # Local-only, real Geocoding API (playwright.map.config.ts)
+  admin-pebbles.spec.ts       # Local-only, real Postgres + mocked session (playwright.admin.config.ts)
 scripts/
   setup.sh             # One-time local environment bootstrap
   dev.sh               # Starts local Postgres (if present) + the dev server
