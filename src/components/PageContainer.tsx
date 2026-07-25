@@ -24,10 +24,12 @@ type PageContainerProps = {
  * Replaces the near-identical
  * "mx-auto flex w-full max-w-* flex-1 flex-col gap-* px-6 py-16"
  * className repeated across every page — see docs/design-ui-redesign.md.
- * gap/maxWidth are props (not raw className overrides) so conflicting
- * Tailwind utilities (e.g. two different gap-* classes) never end up in
- * the same class list, where cascade order — not the className string
- * order — would decide which one wins.
+ * gap/maxWidth are props, not raw className overrides, so *this
+ * component's own* gap/max-width choice can't collide with itself the
+ * way passing two different gap-* strings into one className would
+ * (cascade order, not string order, decides which wins). The escape-hatch
+ * `className` prop is still free-form — a caller can still pass a
+ * conflicting utility through it, same as any Tailwind component.
  */
 export function PageContainer({
   children,
