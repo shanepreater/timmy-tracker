@@ -59,7 +59,7 @@ DATABASE_URL="postgresql://timmy:timmy@localhost:5432/timmy_tracker"
 and database keeps this project isolated from anything else running on
 your local Postgres.
 
-### `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — Google Maps
+### `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` / `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` — Google Maps
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and
    create (or pick) a project.
@@ -70,7 +70,12 @@ your local Postgres.
 4. Restrict the key (Credentials → your key → *Application restrictions*:
    HTTP referrers; *API restrictions*: Maps JavaScript API + Geocoding
    API) before using it anywhere but `localhost`.
-5. Paste the key into `.env.local` and set
+5. **Google Maps Platform → Map Management → Create Map ID** (JavaScript,
+   either render type). Pebble markers use `AdvancedMarkerElement` (the
+   non-deprecated marker API), which only renders on a map with a Map
+   ID — see `docs/design.md`'s Maps row.
+6. Paste the API key into `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and the Map
+   ID into `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` in `.env.local`, then set
    `NEXT_PUBLIC_FEATURE_MAP="true"` to turn the map on.
 
 ### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — sign-in

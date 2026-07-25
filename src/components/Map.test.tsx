@@ -6,7 +6,7 @@ import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 vi.mock("@vis.gl/react-google-maps", () => ({
   APIProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   Map: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Marker: ({ title, onClick }: { title?: string; onClick?: () => void }) => (
+  AdvancedMarker: ({ title, onClick }: { title?: string; onClick?: () => void }) => (
     <button type="button" onClick={onClick}>
       {title}
     </button>
@@ -30,6 +30,7 @@ vi.mock("@vis.gl/react-google-maps", () => ({
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "");
 });
 
 afterEach(() => {
@@ -48,6 +49,20 @@ describe("Map", () => {
 
   it("shows a placeholder when the flag is on but no API key is configured", async () => {
     vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "test-map-id");
+    vi.resetModules();
+
+    const { Map } = await import("./Map");
+    render(<Map pebbles={[]} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
+  });
+
+  it("shows a placeholder when the flag and API key are set but no Map ID is configured", async () => {
+    // AdvancedMarkerElement (replacing the deprecated google.maps.Marker)
+    // requires a Map ID to render at all — see docs/design.md's Maps row.
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-key");
     vi.resetModules();
 
     const { Map } = await import("./Map");
@@ -68,6 +83,7 @@ describe("Map", () => {
     beforeEach(() => {
       vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
       vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-key");
+      vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "test-map-id");
     });
 
     it("shows depositedBy and the date when a marker is clicked", async () => {

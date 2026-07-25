@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   APIProvider,
   Map as GoogleMap,
-  Marker,
+  AdvancedMarker,
   InfoWindow,
 } from "@vis.gl/react-google-maps";
 import { featureFlags } from "@/lib/feature-flags";
@@ -19,14 +19,19 @@ type MapProps = {
 
 /**
  * World map showing where Tim's pebbles have been placed.
- * Gated by featureFlags.map until the Maps API key is wired up, so the
- * site stays usable with the flag off.
+ * Gated by featureFlags.map until the Maps API key and Map ID are wired
+ * up, so the site stays usable with the flag off. Uses AdvancedMarker
+ * rather than the deprecated google.maps.Marker — see
+ * https://developers.google.com/maps/documentation/javascript/advanced-markers/migration.
+ * AdvancedMarkerElement only renders on a map with a Map ID, hence the
+ * mapId prop and the placeholder fallback when it's unset.
  */
 export function Map({ pebbles }: MapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
   const [selectedPebbleId, setSelectedPebbleId] = useState<string | null>(null);
 
-  if (!featureFlags.map || !apiKey) {
+  if (!featureFlags.map || !apiKey || !mapId) {
     return (
       <div
         role="status"
@@ -42,6 +47,7 @@ export function Map({ pebbles }: MapProps) {
   return (
     <APIProvider apiKey={apiKey}>
       <GoogleMap
+        mapId={mapId}
         style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
         defaultCenter={DEFAULT_CENTER}
         defaultZoom={DEFAULT_ZOOM}
@@ -49,7 +55,7 @@ export function Map({ pebbles }: MapProps) {
         disableDefaultUI={false}
       >
         {pebbles.map((pebble) => (
-          <Marker
+          <AdvancedMarker
             key={pebble.id}
             position={{ lat: pebble.latitude, lng: pebble.longitude }}
             title={`${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`}
