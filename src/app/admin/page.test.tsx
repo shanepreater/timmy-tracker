@@ -68,9 +68,11 @@ describe("AdminPage", () => {
 
     render(await AdminPage());
 
-    expect(screen.getByRole("heading", { name: /manage access/i })).toBeInTheDocument();
+    // A single h1 with h2 subsections, not two competing h1s.
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 2, name: /manage access/i })).toBeInTheDocument();
     expect(screen.getByTestId("manage-users")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /manage pebbles/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /manage pebbles/i })).toBeInTheDocument();
     expect(screen.getByTestId("admin-pebbles")).toBeInTheDocument();
   });
 });

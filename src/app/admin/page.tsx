@@ -31,12 +31,13 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-16 px-6 py-16">
+      <h1 className="text-3xl font-semibold tracking-tight">Admin</h1>
       <div className="flex flex-col gap-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Manage access</h1>
+        <h2 className="text-2xl font-semibold tracking-tight">Manage access</h2>
         <ManageUsers allowedUsers={allowedUsers} pendingRequests={pendingRequests} />
       </div>
       <div className="flex flex-col gap-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Manage pebbles</h1>
+        <h2 className="text-2xl font-semibold tracking-tight">Manage pebbles</h2>
         <AdminPebbles pebbles={pebbles} />
       </div>
     </main>

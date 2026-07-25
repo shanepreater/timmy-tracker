@@ -14,7 +14,7 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Pending pebbles</h2>
+        <h3 className="text-xl font-semibold">Pending pebbles</h3>
         {pending.length === 0 ? (
           <p className="text-zinc-600 dark:text-zinc-400">No pending submissions.</p>
         ) : (
@@ -38,7 +38,7 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Verified pebbles</h2>
+        <h3 className="text-xl font-semibold">Verified pebbles</h3>
         {verified.length === 0 ? (
           <p className="text-zinc-600 dark:text-zinc-400">No verified pebbles yet.</p>
         ) : (
@@ -59,8 +59,11 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                     Lat
                     <input
                       name="latitude"
-                      type="text"
-                      inputMode="decimal"
+                      type="number"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      required
                       defaultValue={pebble.latitude}
                     />
                   </label>
@@ -68,8 +71,11 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                     Long
                     <input
                       name="longitude"
-                      type="text"
-                      inputMode="decimal"
+                      type="number"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      required
                       defaultValue={pebble.longitude}
                     />
                   </label>
