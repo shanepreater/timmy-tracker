@@ -154,7 +154,10 @@ Acceptance criteria:
 ### [ ] Associate a photo with a location
 Design brief:
 Support uploading and storing a photo per pebble, with safe validation,
-storage, and display behavior.
+storage, and display behavior. See
+[docs/finops-report.md](finops-report.md) for the storage-backend cost
+analysis (recommends Vercel Blob) to build the design against — not a
+design doc itself, so a design still needs writing before implementation.
 
 Acceptance criteria:
 * Supported image formats and max size are validated server-side.

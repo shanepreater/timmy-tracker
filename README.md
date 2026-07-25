@@ -13,6 +13,19 @@ stones have been placed by the people who loved him.
 See [docs/design.md](docs/design.md) for the full architecture rationale
 and [docs/features.md](docs/features.md) for what's built vs. outstanding.
 
+## Assumptions
+
+* **150 pebbles total, permanently.** 150 physical pebbles have been
+  made — this is a fixed, known ceiling, not a growth projection.
+  No more will ever be produced, so the app never needs to plan for
+  more than 150 `Pebble` rows (and, once built, at most 150 associated
+  photos — see [docs/finops-report.md](docs/finops-report.md)). Scale/
+  cost decisions across this project lean on this number rather than
+  guessing at growth.
+* **Low, non-public traffic.** This is a memorial site for one
+  family/friend circle, not a public product — see `docs/design.md`'s
+  hosting rationale.
+
 ## Getting started
 
 ```bash

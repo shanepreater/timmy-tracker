@@ -11,7 +11,9 @@ approach needed before any MVP features (submitting a pebble, admin
 verification, etc.) can be built on top.
 
 This is a small, low-traffic site for a family and friends to track where
-Tim's memorial stones have been placed. The design favours the simplest
+Tim's memorial stones have been placed — 150 pebbles were physically
+made, a fixed ceiling rather than a growth projection (see the root
+`README.md`'s "Assumptions" section). The design favours the simplest
 stack that gets a real map + database in front of users, over anything
 that anticipates scale this project will never see.
 
