@@ -15,9 +15,11 @@ type SiteHeaderProps = {
 export function SiteHeader({ children }: SiteHeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-stone-200 px-6 py-3 text-sm dark:border-stone-700">
-      <Link href="/" className="flex items-center gap-3">
+      <Link href="/" aria-label="Timmy Tracker home" className="flex items-center gap-3">
         <Logo size={32} />
-        <span className="heading-3 hidden sm:inline">Timmy Tracker</span>
+        <span aria-hidden="true" className="heading-3 hidden sm:inline">
+          Timmy Tracker
+        </span>
       </Link>
       {children && <div className="flex items-center gap-4">{children}</div>}
     </header>
