@@ -7,8 +7,13 @@ const addAllowedUser = vi.fn();
 const removeAllowedUser = vi.fn();
 const setAllowedUserAdmin = vi.fn();
 const createPebbleByAdmin = vi.fn();
+const getPebblePhotoUrl = vi.fn();
+const removePebblePhoto = vi.fn();
 const verifyPebble = vi.fn();
 const movePebble = vi.fn();
+const deletePebblePhoto = vi.fn();
+const uploadPebblePhoto = vi.fn();
+const validatePebblePhoto = vi.fn();
 const revalidatePath = vi.fn();
 
 vi.mock("@/lib/auth-guards", () => ({ requireAdmin }));
@@ -18,7 +23,18 @@ vi.mock("@/lib/allowed-users", () => ({
   removeAllowedUser,
   setAllowedUserAdmin,
 }));
-vi.mock("@/lib/pebbles", () => ({ createPebbleByAdmin, verifyPebble, movePebble }));
+vi.mock("@/lib/pebbles", () => ({
+  createPebbleByAdmin,
+  getPebblePhotoUrl,
+  removePebblePhoto,
+  verifyPebble,
+  movePebble,
+}));
+vi.mock("@/lib/pebble-photos", () => ({
+  deletePebblePhoto,
+  uploadPebblePhoto,
+  validatePebblePhoto,
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 // Stubbed before the static import below, so featureFlags.admin is
@@ -35,6 +51,7 @@ const {
   addPebbleAction,
   verifyPebbleAction,
   movePebbleAction,
+  removePebblePhotoAction,
 } = await import("./actions");
 
 const VALID_PEBBLE_FIELDS = {
@@ -52,9 +69,20 @@ beforeEach(() => {
   removeAllowedUser.mockReset();
   setAllowedUserAdmin.mockReset();
   createPebbleByAdmin.mockReset();
+  getPebblePhotoUrl.mockReset();
+  getPebblePhotoUrl.mockResolvedValue(null);
+  removePebblePhoto.mockReset();
+  removePebblePhoto.mockResolvedValue(undefined);
   verifyPebble.mockReset();
   movePebble.mockReset();
+  deletePebblePhoto.mockReset();
+  deletePebblePhoto.mockResolvedValue(undefined);
+  uploadPebblePhoto.mockReset();
+  uploadPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
+  validatePebblePhoto.mockReset();
+  validatePebblePhoto.mockReturnValue({});
   revalidatePath.mockReset();
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
 
 function formData(values: Record<string, string> = {}) {
@@ -203,9 +231,55 @@ describe("addPebbleAction", () => {
       longitude: 2.2945,
       depositedBy: "Sarah",
       depositedAt: new Date("2026-03-01"),
-    });
+    }, undefined);
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("uploads a provided photo and stores its URL", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
+
+    const data = formData(VALID_PEBBLE_FIELDS);
+    const file = new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" });
+    data.set("photo", file);
+
+    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
+
+    expect(result).toEqual({ status: "success" });
+    expect(validatePebblePhoto).toHaveBeenCalledWith(file);
+    expect(uploadPebblePhoto).toHaveBeenCalledWith(file);
+    expect(createPebbleByAdmin).toHaveBeenCalledWith(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      "https://blob.example/photo.webp",
+    );
+  });
+
+  it("returns a photo error when photo validation fails", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    validatePebblePhoto.mockReturnValue({ error: "Photo must be 8 MB or smaller." });
+    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
+
+    const data = formData(VALID_PEBBLE_FIELDS);
+    data.set("photo", new File([new Uint8Array([1])], "tim.jpg", { type: "image/jpeg" }));
+
+    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
+
+    expect(result).toEqual({
+      status: "error",
+      errors: { photo: "Photo must be 8 MB or smaller." },
+    });
+    expect(uploadPebblePhoto).not.toHaveBeenCalled();
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
   });
 
   it("returns field errors and doesn't create a pebble on invalid input", async () => {
@@ -254,5 +328,57 @@ describe("movePebbleAction", () => {
 
     expect(movePebble).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("removePebblePhotoAction", () => {
+  it("throws when FEATURE_ADMIN is off", async () => {
+    vi.stubEnv("FEATURE_ADMIN", "");
+    vi.resetModules();
+    const disabled = await import("./actions");
+
+    await expect(disabled.removePebblePhotoAction("p1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(removePebblePhotoAction("p1", formData())).rejects.toThrow(
+      "Pebble photos aren't enabled.",
+    );
+    expect(getPebblePhotoUrl).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when the pebble has no photo", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("FEATURE_ADMIN", "true");
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    const { removePebblePhotoAction: removeWithPhotos } = await import("./actions");
+
+    await removeWithPhotos("p1", formData());
+
+    expect(getPebblePhotoUrl).toHaveBeenCalledWith("p1");
+    expect(deletePebblePhoto).not.toHaveBeenCalled();
+    expect(removePebblePhoto).not.toHaveBeenCalled();
+  });
+
+  it("deletes blob then clears DB photoUrl and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getPebblePhotoUrl.mockResolvedValue("https://blob.example/photo.webp");
+    vi.stubEnv("FEATURE_ADMIN", "true");
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    const { removePebblePhotoAction: removeWithPhotos } = await import("./actions");
+
+    await removeWithPhotos("p1", formData());
+
+    expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/photo.webp");
+    expect(removePebblePhoto).toHaveBeenCalledWith("p1");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
   });
 });

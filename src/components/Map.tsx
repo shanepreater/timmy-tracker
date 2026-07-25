@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { featureFlags } from "@/lib/feature-flags";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
+import { PebblePhoto } from "@/components/PebblePhoto";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -69,6 +70,13 @@ export function Map({ pebbles }: MapProps) {
             onCloseClick={() => setSelectedPebbleId(null)}
           >
             <div className="flex flex-col gap-1 text-sm text-stone-900">
+              {featureFlags.pebblePhotos && selectedPebble.photoUrl && (
+                <PebblePhoto
+                  src={selectedPebble.photoUrl}
+                  alt={`Photo for ${selectedPebble.depositedBy}`}
+                  className="mb-2 h-24 w-24"
+                />
+              )}
               <span className="font-semibold">{selectedPebble.depositedBy}</span>
               <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
             </div>

@@ -7,6 +7,8 @@ import {
   createPebbleByAdmin,
   verifyPebble,
   movePebble,
+  getPebblePhotoUrl,
+  removePebblePhoto,
 } from "@/lib/pebbles";
 
 const TEST_ID_PREFIX = "integration-test-pebble-";
@@ -110,6 +112,25 @@ describe("submitPebble (integration)", () => {
     });
     expect(stored?.submitterEmail).toBe("shane@example.com");
   });
+
+  it("persists photoUrl when provided", async () => {
+    await submitPebble(
+      {
+        latitude: 10,
+        longitude: 20,
+        depositedBy: SUBMIT_TEST_MARKER,
+        depositedAt: new Date("2026-05-01"),
+      },
+      "shane@example.com",
+      "https://blob.example/submit-photo.webp",
+    );
+
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: SUBMIT_TEST_MARKER },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(stored?.photoUrl).toBe("https://blob.example/submit-photo.webp");
+  });
 });
 
 describe("listAllPebbles (integration)", () => {
@@ -155,6 +176,24 @@ describe("createPebbleByAdmin (integration)", () => {
 
     const verified = await getVerifiedPebbles();
     expect(verified.some((p) => p.depositedBy === MARKER)).toBe(true);
+  });
+
+  it("persists photoUrl when admin provides one", async () => {
+    await createPebbleByAdmin(
+      {
+        latitude: 10,
+        longitude: 20,
+        depositedBy: MARKER,
+        depositedAt: new Date("2026-05-01"),
+      },
+      "https://blob.example/admin-photo.webp",
+    );
+
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: MARKER },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(stored?.photoUrl).toBe("https://blob.example/admin-photo.webp");
   });
 });
 
@@ -207,5 +246,33 @@ describe("movePebble (integration)", () => {
       status: "VERIFIED",
       depositedBy: MARKER,
     });
+  });
+});
+
+describe("pebble photo helpers (integration)", () => {
+  const MARKER = "integration-test-photo-helpers";
+
+  beforeAll(async () => {
+    await prisma.pebble.deleteMany({ where: { depositedBy: MARKER } });
+    await prisma.pebble.create({
+      data: testPebble("photo-helper-target", {
+        depositedBy: MARKER,
+        status: "VERIFIED",
+        photoUrl: "https://blob.example/photo-helper.webp",
+      }),
+    });
+  });
+
+  it("reads and clears photoUrl", async () => {
+    await expect(getPebblePhotoUrl(`${TEST_ID_PREFIX}photo-helper-target`)).resolves.toBe(
+      "https://blob.example/photo-helper.webp",
+    );
+
+    await removePebblePhoto(`${TEST_ID_PREFIX}photo-helper-target`);
+
+    const stored = await prisma.pebble.findUnique({
+      where: { id: `${TEST_ID_PREFIX}photo-helper-target` },
+    });
+    expect(stored?.photoUrl).toBeNull();
   });
 });

@@ -99,16 +99,27 @@ your local Postgres.
 3. Add an authorized redirect URI:
    `http://localhost:3000/api/auth/callback/google` (swap the host once
    deployed).
-4. Copy the generated **Client ID** and **Client secret** into
+4. Add the production redirect URI too:
+   `https://trackingtim.com/api/auth/callback/google`.
+5. Copy the generated **Client ID** and **Client secret** into
    `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
-5. Generate `AUTH_SECRET` with `npx auth secret` (or
+6. Generate `AUTH_SECRET` with `npx auth secret` (or
    `openssl rand -base64 32`).
-6. Set `FEATURE_AUTH_GATE="true"` to require sign-in for the whole app
+7. Set `FEATURE_AUTH_GATE="true"` to require sign-in for the whole app
    (whitelisted via the `AllowedUser` table — `prisma/seed.ts` seeds
    `shane.preater@gmail.com` as the bootstrap admin) — see
    `docs/design-access-control.md`. Set `FEATURE_ADMIN="true"` to turn
    on the `/admin` route itself (managing the whitelist, approving
    access requests).
+
+### `BLOB_READ_WRITE_TOKEN` — pebble photo upload/delete
+
+1. In Vercel, open the project's **Storage** tab and create (or reuse)
+   a Blob store.
+2. Generate a read/write token for that store.
+3. Set `BLOB_READ_WRITE_TOKEN` in `.env.local`.
+4. Set `NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS="true"` to expose photo
+   upload controls in submit/admin forms.
 
 ## Development
 
@@ -119,6 +130,7 @@ npm run test:integration # Vitest against real Postgres
 npm run test:e2e         # Playwright — CI-safe, every feature flag off
 npm run test:e2e:map     # Playwright — real Google Maps, needs your .env.local key, local only
 npm run test:e2e:admin   # Playwright — real local Postgres + admin flow, local only
+npm run test:e2e:blob    # Playwright — real Vercel Blob upload + DB persistence, local only
 npm run build            # Production build
 ```
 
@@ -133,6 +145,10 @@ move) against your local Postgres, signed in via a mocked NextAuth
 session rather than real Google OAuth — see
 `docs/design-admin-pebbles.md`. It skips itself unless `DATABASE_URL`,
 `AUTH_SECRET`, and `FEATURE_ADMIN="true"` are all set locally.
+
+`npm run test:e2e:blob` exercises real Blob upload from the submit flow
+and confirms `photoUrl` is persisted in Postgres. It skips itself
+unless `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` are set locally.
 
 CI also lints `scripts/*.sh` with [shellcheck](https://www.shellcheck.net/)
 and the workflow files under `.github/workflows/` with

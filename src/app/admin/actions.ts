@@ -5,7 +5,14 @@ import { requireAdmin } from "@/lib/auth-guards";
 import { featureFlags } from "@/lib/feature-flags";
 import { approveAccessRequest, denyAccessRequest } from "@/lib/access-requests";
 import { addAllowedUser, removeAllowedUser, setAllowedUserAdmin } from "@/lib/allowed-users";
-import { createPebbleByAdmin, verifyPebble, movePebble } from "@/lib/pebbles";
+import {
+  createPebbleByAdmin,
+  getPebblePhotoUrl,
+  movePebble,
+  removePebblePhoto,
+  verifyPebble,
+} from "@/lib/pebbles";
+import { deletePebblePhoto, uploadPebblePhoto, validatePebblePhoto } from "@/lib/pebble-photos";
 import {
   validateSubmitPebbleInput,
   validateCoordinates,
@@ -22,6 +29,19 @@ function assertAdminFeatureEnabled() {
   if (!featureFlags.admin) {
     throw new Error("The admin section isn't enabled.");
   }
+}
+
+function getOptionalPhoto(formData: FormData): File | null {
+  const value = formData.get("photo");
+  if (!(value instanceof File)) {
+    return null;
+  }
+
+  if (!value.name || value.size === 0) {
+    return null;
+  }
+
+  return value;
 }
 
 export async function approveAccessRequestAction(requestId: string, _formData: FormData) {
@@ -92,7 +112,20 @@ export async function addPebbleAction(
     return { status: "error", errors: result.errors };
   }
 
-  await createPebbleByAdmin(result.data);
+  let photoUrl: string | undefined;
+  if (featureFlags.pebblePhotos) {
+    const photo = getOptionalPhoto(formData);
+    if (photo) {
+      const validation = validatePebblePhoto(photo);
+      if (validation.error) {
+        return { status: "error", errors: { photo: validation.error } };
+      }
+
+      photoUrl = await uploadPebblePhoto(photo);
+    }
+  }
+
+  await createPebbleByAdmin(result.data, photoUrl);
   revalidatePath("/admin");
   revalidatePath("/");
   return { status: "success" };
@@ -117,6 +150,26 @@ export async function movePebbleAction(id: string, formData: FormData) {
   if (coordinates.errors) return;
 
   await movePebble(id, coordinates.latitude, coordinates.longitude);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function removePebblePhotoAction(id: string, _formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+
+  if (!featureFlags.pebblePhotos) {
+    throw new Error("Pebble photos aren't enabled.");
+  }
+
+  const photoUrl = await getPebblePhotoUrl(id);
+  if (!photoUrl) {
+    return;
+  }
+
+  await deletePebblePhoto(photoUrl);
+  await removePebblePhoto(id);
+
   revalidatePath("/admin");
   revalidatePath("/");
 }

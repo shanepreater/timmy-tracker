@@ -2,6 +2,7 @@
 
 import { featureFlags } from "@/lib/feature-flags";
 import { submitPebble } from "@/lib/pebbles";
+import { uploadPebblePhoto, validatePebblePhoto } from "@/lib/pebble-photos";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import {
   validateSubmitPebbleInput,
@@ -12,6 +13,20 @@ export type SubmitPebbleState =
   | { status: "idle" }
   | { status: "error"; errors: SubmitPebbleFormErrors }
   | { status: "success" };
+
+function getOptionalPhoto(formData: FormData): File | null {
+  const value = formData.get("photo");
+  if (!(value instanceof File)) {
+    return null;
+  }
+
+  // Browser file inputs include an empty File when left untouched.
+  if (!value.name || value.size === 0) {
+    return null;
+  }
+
+  return value;
+}
 
 export async function submitPebbleAction(
   _prevState: SubmitPebbleState,
@@ -58,6 +73,19 @@ export async function submitPebbleAction(
     return { status: "error", errors: result.errors };
   }
 
-  await submitPebble(result.data, submitterEmail);
+  let photoUrl: string | undefined;
+  if (featureFlags.pebblePhotos) {
+    const photo = getOptionalPhoto(formData);
+    if (photo) {
+      const validation = validatePebblePhoto(photo);
+      if (validation.error) {
+        return { status: "error", errors: { photo: validation.error } };
+      }
+
+      photoUrl = await uploadPebblePhoto(photo);
+    }
+  }
+
+  await submitPebble(result.data, submitterEmail, photoUrl);
   return { status: "success" };
 }

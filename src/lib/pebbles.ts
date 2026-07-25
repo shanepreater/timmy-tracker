@@ -8,6 +8,7 @@ export type VerifiedPebble = {
   longitude: number;
   depositedBy: string;
   depositedAt: Date;
+  photoUrl: string | null;
 };
 
 /**
@@ -41,6 +42,7 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
       longitude: true,
       depositedBy: true,
       depositedAt: true,
+      photoUrl: true,
     },
   });
 }
@@ -58,12 +60,14 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
 export async function submitPebble(
   input: SubmitPebbleInput,
   submitterEmail?: string,
+  photoUrl?: string,
 ): Promise<void> {
   await prisma.pebble.create({
     data: {
       latitude: input.latitude,
       longitude: input.longitude,
       depositedBy: input.depositedBy,
+      photoUrl,
       submitterEmail,
       depositedAt: input.depositedAt,
       status: "PENDING",
@@ -86,17 +90,37 @@ export async function listAllPebbles(): Promise<Pebble[]> {
  * submitter to verify against, so it's created already VERIFIED with no
  * submitterEmail — see docs/design-admin-pebbles.md.
  */
-export async function createPebbleByAdmin(input: SubmitPebbleInput): Promise<void> {
+export async function createPebbleByAdmin(
+  input: SubmitPebbleInput,
+  photoUrl?: string,
+): Promise<void> {
   await prisma.pebble.create({
     data: {
       latitude: input.latitude,
       longitude: input.longitude,
       depositedBy: input.depositedBy,
+      photoUrl: photoUrl ?? null,
       submitterEmail: null,
       depositedAt: input.depositedAt,
       status: "VERIFIED",
       verifiedAt: new Date(),
     },
+  });
+}
+
+export async function getPebblePhotoUrl(id: string): Promise<string | null> {
+  const pebble = await prisma.pebble.findUnique({
+    where: { id },
+    select: { photoUrl: true },
+  });
+
+  return pebble?.photoUrl ?? null;
+}
+
+export async function removePebblePhoto(id: string): Promise<void> {
+  await prisma.pebble.update({
+    where: { id },
+    data: { photoUrl: null },
   });
 }
 

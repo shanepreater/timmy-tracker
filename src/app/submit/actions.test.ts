@@ -3,10 +3,13 @@ import type { SubmitPebbleState } from "./actions";
 
 const submitPebble = vi.fn();
 const requireAllowedUser = vi.fn();
+const uploadPebblePhoto = vi.fn();
+const validatePebblePhoto = vi.fn();
 
 class FakeUnauthorizedError extends Error {}
 
 vi.mock("@/lib/pebbles", () => ({ submitPebble }));
+vi.mock("@/lib/pebble-photos", () => ({ uploadPebblePhoto, validatePebblePhoto }));
 vi.mock("@/lib/auth-guards", () => ({
   requireAllowedUser,
   UnauthorizedError: FakeUnauthorizedError,
@@ -33,7 +36,12 @@ beforeEach(() => {
   submitPebble.mockReset();
   submitPebble.mockResolvedValue(undefined);
   requireAllowedUser.mockReset();
+  uploadPebblePhoto.mockReset();
+  uploadPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
+  validatePebblePhoto.mockReset();
+  validatePebblePhoto.mockReturnValue({});
   vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "true");
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
   vi.stubEnv("FEATURE_AUTH_GATE", "");
 });
 
@@ -83,6 +91,7 @@ describe("submitPebbleAction", () => {
         depositedAt: new Date("2026-03-01"),
       },
       undefined,
+      undefined,
     );
   });
 
@@ -121,6 +130,56 @@ describe("submitPebbleAction", () => {
           depositedAt: new Date("2026-03-01"),
         },
         "shane@example.com",
+        undefined,
+      );
+    });
+  });
+
+  describe("with pebble photos enabled", () => {
+    beforeEach(() => {
+      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    });
+
+    it("returns a photo error when validation fails", async () => {
+      vi.resetModules();
+      validatePebblePhoto.mockReturnValue({ error: "Upload a JPG, PNG, or WebP image." });
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      data.set("photo", new File([new Uint8Array([1])], "bad.gif", { type: "image/gif" }));
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({
+        status: "error",
+        errors: { photo: "Upload a JPG, PNG, or WebP image." },
+      });
+      expect(uploadPebblePhoto).not.toHaveBeenCalled();
+      expect(submitPebble).not.toHaveBeenCalled();
+    });
+
+    it("uploads the file and passes photoUrl to submitPebble", async () => {
+      vi.resetModules();
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      const file = new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" });
+      data.set("photo", file);
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({ status: "success" });
+      expect(validatePebblePhoto).toHaveBeenCalledWith(file);
+      expect(uploadPebblePhoto).toHaveBeenCalledWith(file);
+      expect(submitPebble).toHaveBeenCalledWith(
+        {
+          latitude: 48.8584,
+          longitude: 2.2945,
+          depositedBy: "Sarah",
+          depositedAt: new Date("2026-03-01"),
+        },
+        undefined,
+        "https://blob.example/photo.webp",
       );
     });
   });

@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const findMany = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
+const findUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { pebble: { findMany, create, update } },
+  prisma: { pebble: { findMany, create, update, findUnique } },
 }));
 
 const {
@@ -16,6 +17,8 @@ const {
   createPebbleByAdmin,
   verifyPebble,
   movePebble,
+  getPebblePhotoUrl,
+  removePebblePhoto,
 } = await import("./pebbles");
 
 describe("getVerifiedPebbles", () => {
@@ -37,6 +40,7 @@ describe("getVerifiedPebbles", () => {
         longitude: true,
         depositedBy: true,
         depositedAt: true,
+        photoUrl: true,
       },
     });
   });
@@ -48,6 +52,7 @@ describe("getVerifiedPebbles", () => {
       longitude: 2,
       depositedBy: "Someone",
       depositedAt: new Date("2026-01-01"),
+      photoUrl: null,
     };
     findMany.mockResolvedValue([pebble]);
 
@@ -74,6 +79,7 @@ describe("submitPebble", () => {
         latitude: 48.8584,
         longitude: 2.2945,
         depositedBy: "Sarah",
+        photoUrl: undefined,
         submitterEmail: undefined,
         depositedAt: new Date("2026-03-01"),
         status: "PENDING",
@@ -135,12 +141,31 @@ describe("createPebbleByAdmin", () => {
         latitude: 48.8584,
         longitude: 2.2945,
         depositedBy: "Sarah",
+        photoUrl: null,
         submitterEmail: null,
         depositedAt: new Date("2026-03-01"),
         status: "VERIFIED",
         verifiedAt: expect.any(Date),
       },
     });
+  });
+
+  it("stores photoUrl when provided", async () => {
+    await createPebbleByAdmin(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      "https://blob.example/photo.webp",
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ photoUrl: "https://blob.example/photo.webp" }),
+      }),
+    );
   });
 });
 
@@ -172,6 +197,44 @@ describe("movePebble", () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: "p1" },
       data: { latitude: 10, longitude: 20 },
+    });
+  });
+});
+
+describe("getPebblePhotoUrl", () => {
+  beforeEach(() => {
+    findUnique.mockReset();
+  });
+
+  it("returns the photo URL when present", async () => {
+    findUnique.mockResolvedValue({ photoUrl: "https://blob.example/photo.webp" });
+
+    await expect(getPebblePhotoUrl("p1")).resolves.toBe("https://blob.example/photo.webp");
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: "p1" },
+      select: { photoUrl: true },
+    });
+  });
+
+  it("returns null when no pebble exists", async () => {
+    findUnique.mockResolvedValue(null);
+
+    await expect(getPebblePhotoUrl("p1")).resolves.toBeNull();
+  });
+});
+
+describe("removePebblePhoto", () => {
+  beforeEach(() => {
+    update.mockReset();
+    update.mockResolvedValue(undefined);
+  });
+
+  it("sets photoUrl to null", async () => {
+    await removePebblePhoto("p1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "p1" },
+      data: { photoUrl: null },
     });
   });
 });

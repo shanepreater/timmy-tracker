@@ -156,8 +156,33 @@ Design brief:
 Support uploading and storing a photo per pebble, with safe validation,
 storage, and display behavior. See
 [docs/finops-report.md](finops-report.md) for the storage-backend cost
-analysis (recommends Vercel Blob) to build the design against — not a
-design doc itself, so a design still needs writing before implementation.
+analysis (recommends Vercel Blob) to build the implementation against.
+
+Implementation progress:
+* [x] Design doc written: [docs/design-pebble-photos.md](design-pebble-photos.md).
+* [x] Prisma model extended with nullable `Pebble.photoUrl` plus
+  migration `20260725155026_pebble_photos`.
+* [x] Added explicit dependencies: `@vercel/blob` and `sharp`.
+* [x] Photo validation and Blob upload/delete data layer
+  (`src/lib/pebble-photos.ts`) with unit tests.
+* [x] Action wiring (`submitPebbleAction`, `addPebbleAction`,
+  `removePebblePhotoAction`) with unit tests.
+* [x] Submit/admin UI upload controls + map/admin photo display
+  (`PebblePhoto` component with graceful fallback).
+* [x] Feature flag + env/config + local-only Blob e2e test scaffold.
+* [x] Lint + unit + integration + CI-safe e2e checks run.
+* [ ] Real Blob e2e execution (`npm run test:e2e:blob`) with a configured
+  `BLOB_READ_WRITE_TOKEN`.
+* [ ] Manual browser smoke test of submit/admin/map photo flows.
+
+Validation notes:
+* `npm test`, `npm run test:integration` (with local Postgres),
+  `npm run test:e2e`, and `npm run test:e2e:admin` are passing.
+* `npm run test:e2e:blob` is currently skipping because
+  `BLOB_READ_WRITE_TOKEN` is not set in local env.
+* `npm run build` fails in this sandboxed environment because Google
+  Fonts (`Geist`, `Geist Mono`) cannot be fetched; this is an existing
+  environment/network limitation unrelated to pebble-photo code paths.
 
 Acceptance criteria:
 * Supported image formats and max size are validated server-side.

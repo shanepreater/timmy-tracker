@@ -32,7 +32,15 @@ describe("AdminAddPebbleForm", () => {
     expect(screen.getByText("Longitude")).toBeInTheDocument();
     expect(screen.getByText("Deposited by")).toBeInTheDocument();
     expect(screen.getByText("Date deposited")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Photo (optional)")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add pebble/i })).toBeInTheDocument();
+  });
+
+  it("shows the optional photo input when the photo feature is enabled", () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    render(<AdminAddPebbleForm />);
+
+    expect(screen.getByLabelText("Photo (optional)")).toBeInTheDocument();
   });
 
   it("shows field errors returned by the action", async () => {
