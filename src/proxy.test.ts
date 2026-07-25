@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextResponse } from "next/server";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 // auth() as used here is next-auth's HOF: auth(callback) wraps callback
 // with real JWT verification and calls it with req.auth populated. We
@@ -98,6 +100,16 @@ describe("proxy's matcher pattern", () => {
   const MATCHER_PATTERN =
     "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)";
   const matcherRegex = new RegExp(`^${MATCHER_PATTERN}$`);
+
+  it("stays in sync with proxy.ts's actual config.matcher — not just a copy that could silently drift", () => {
+    const proxySource = readFileSync(path.join(process.cwd(), "src/proxy.ts"), "utf-8");
+    // MATCHER_PATTERN is the *runtime* string value (backslashes already
+    // unescaped by the JS parser); proxySource is raw file text, where a
+    // literal backslash is written as "\\" — re-escape before comparing,
+    // or this always fails regardless of whether the patterns actually match.
+    const patternAsSourceLiteral = MATCHER_PATTERN.replace(/\\/g, "\\\\");
+    expect(proxySource).toContain(patternAsSourceLiteral);
+  });
 
   it.each(["/tim.jpg", "/icon.png", "/logo.svg", "/favicon.ico"])(
     "excludes static asset path %s",
