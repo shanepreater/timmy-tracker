@@ -165,6 +165,10 @@ Design brief:
 Redesign the visual layer to a more intentional Material-inspired system
 while preserving existing feature flags and behaviors.
 
+The admin screen should have a tab header for the different sections rather than a continuous list.
+
+There should be a standard header at the top with a logo which allows users to easily get back to the main home screen.
+
 Acceptance criteria:
 * Shared design tokens are defined (color, spacing, type scale,
   elevation/state styles).
