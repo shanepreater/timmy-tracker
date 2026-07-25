@@ -1,6 +1,6 @@
 # Design: UI redesign
 
-Status: proposed
+Status: implemented
 Related feature: [UI redesign](features.md) in `docs/features.md`
 
 ## Context
@@ -59,24 +59,78 @@ Extends the existing `@theme inline` block (currently only
   across `ManageUsers`, `AdminPebbles`, `AdminAddPebbleForm`,
   `SubmitPebbleForm`, `RequestAccessButton`, `SignOutButton`,
   `PlaceLookup` moves to this.
+* `ButtonLink` — same look as `Button` on a `next/link` instead of a
+  native `<button>`, for CTAs that navigate rather than submit (added
+  after review: the home page's "Submit a pebble" was a plain
+  underlined text link, not a real call to action).
 * `Logo` — Tim's photo, circularly cropped, sized for the header;
   reused (larger) for the favicon generation step.
+* `SiteHeader` — logo + link back to `/`, present on every page
+  regardless of auth-gate state (added after review — see "Persistent
+  header" below). `AppHeader` now wraps it, adding the signed-in-only
+  content (email, admin link, sign out) via its children slot instead
+  of duplicating the header markup.
+* `AdminTabs` — switches `/admin` between its two sections via
+  `?tab=access|pebbles` (added after review — see "Admin tabs" below).
 
 ## Screens in scope
 
 * Home (`/`) — header/logo, hero copy on the new type scale, `Map`
-  placeholder restyled to the `.card` treatment, submit link as a
-  `Button`.
+  placeholder restyled to the `.card` treatment, submit CTA as a
+  `ButtonLink` positioned directly under the intro copy.
 * Submit (`/submit`) — `SubmitPebbleForm` inputs/buttons, `PlaceLookup`
   box.
-* Auth-gated states — `AppHeader` (adds the `Logo`), `RequestAccess`,
+* Auth-gated states — `AppHeader`/`SiteHeader`, `RequestAccess`,
   `RequestAccessButton`, `SignOutButton`.
-* Admin (`/admin`) — `ManageUsers`, `AdminPebbles`, `AdminAddPebbleForm`
-  — heading hierarchy already fixed in a prior PR, this pass is buttons/
-  inputs/cards only.
+* Admin (`/admin`) — `ManageUsers`, `AdminPebbles`, `AdminAddPebbleForm`,
+  now tabbed via `AdminTabs` rather than one continuously scrolling page.
 
 Out of scope: `Map.tsx`'s actual Google-rendered map surface (Google's
 own UI, not ours to restyle) — only the placeholder/card frame around it.
+
+## Additions made after initial review
+
+Three requirements arrived after the first implementation pass (direct
+user feedback while reviewing the in-progress result), each handled as
+a small addendum rather than a full doc rewrite:
+
+* **Persistent header** — the original plan only put a header
+  (`AppHeader`) inside `AuthGate`'s signed-in branch, so with
+  `FEATURE_AUTH_GATE` off (the default) or on `RequestAccess`'s screen,
+  there was no header/logo at all. `SiteHeader` now renders in every
+  `AuthGate` branch — see the primitives list above.
+* **Admin tabs** — `/admin` was one long page with both sections
+  stacked vertically. Switched to `AdminTabs` + `?tab=` search param
+  (plain links to a real URL per section, not a JS-driven ARIA tabs
+  widget — see the route/component itself for why that distinction
+  matters for accessibility correctness).
+* **Submit CTA** — "Submit a pebble" was a plain underlined text link
+  at the bottom of the home page, after the map. Moved to a `ButtonLink`
+  directly under the intro copy, above the map.
+
+## Bug found and fixed along the way
+
+Wiring up `SiteHeader`'s logo surfaced a real, pre-existing bug in
+`proxy.ts`: its auth-gate matcher never exempted `public/` static
+assets, so an unauthenticated request for `/tim.jpg` itself redirected
+to sign-in — and so did Next's Image Optimization endpoint's *internal*
+fetch of it, breaking the logo everywhere once `FEATURE_AUTH_GATE` is
+on. Fixed by excluding common static image extensions in the matcher
+pattern alongside the existing `api/auth`/`_next/static`/`_next/image`/
+`favicon.ico` exclusions.
+
+Diagnosing that also caught a second, self-inflicted bug: an
+intermediate fix extracted the matcher pattern into a named exported
+constant for reuse in a test, which broke matching entirely — Next.js
+requires `config.matcher` to be a static string literal it can parse at
+build time, not a reference to another variable. The production build
+failed outright on this, but Turbopack's dev server didn't: it silently
+ran the proxy for *every* request instead of honoring any exclusion
+(confirmed via temporary debug logging — even `api/auth/signin` and
+`_next/static` paths were being intercepted). The pattern is back to
+being inlined directly in `proxy.ts`; `proxy.test.ts` keeps its own
+literal copy of the pattern for its regression tests, since it can't
+import a shared constant either, for the same reason.
 
 ## Accessibility baseline
 
