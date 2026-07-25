@@ -15,6 +15,7 @@ const deletePebblePhoto = vi.fn();
 const uploadPebblePhoto = vi.fn();
 const validatePebblePhoto = vi.fn();
 const revalidatePath = vi.fn();
+class FakePhotoValidationError extends Error {}
 
 vi.mock("@/lib/auth-guards", () => ({ requireAdmin }));
 vi.mock("@/lib/access-requests", () => ({ approveAccessRequest, denyAccessRequest }));
@@ -34,6 +35,7 @@ vi.mock("@/lib/pebble-photos", () => ({
   deletePebblePhoto,
   uploadPebblePhoto,
   validatePebblePhoto,
+  PhotoValidationError: FakePhotoValidationError,
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -279,6 +281,27 @@ describe("addPebbleAction", () => {
       errors: { photo: "Photo must be 8 MB or smaller." },
     });
     expect(uploadPebblePhoto).not.toHaveBeenCalled();
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
+  });
+
+  it("returns a photo error when upload throws PhotoValidationError", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    uploadPebblePhoto.mockRejectedValue(
+      new FakePhotoValidationError("We couldn't process that image. Try a different file."),
+    );
+    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
+
+    const data = formData(VALID_PEBBLE_FIELDS);
+    data.set("photo", new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" }));
+
+    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
+
+    expect(result).toEqual({
+      status: "error",
+      errors: { photo: "We couldn't process that image. Try a different file." },
+    });
     expect(createPebbleByAdmin).not.toHaveBeenCalled();
   });
 

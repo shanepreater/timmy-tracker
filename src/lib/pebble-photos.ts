@@ -15,6 +15,10 @@ export class PhotoValidationError extends Error {
 }
 
 export function validatePebblePhoto(file: File): { error?: string } {
+  if (file.size === 0) {
+    return { error: "Photo file is empty." };
+  }
+
   if (!ALLOWED_MIME_TYPES.includes(file.type as (typeof ALLOWED_MIME_TYPES)[number])) {
     return { error: "Upload a JPG, PNG, or WebP image." };
   }
@@ -49,16 +53,21 @@ export async function uploadPebblePhoto(file: File): Promise<string> {
       ? await file.arrayBuffer()
       : await new Response(file).arrayBuffer();
   const input = Buffer.from(arrayBuffer);
-  const output = await sharp(input)
-    .rotate()
-    .resize({
-      width: MAX_IMAGE_DIMENSION,
-      height: MAX_IMAGE_DIMENSION,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: OUTPUT_IMAGE_QUALITY })
-    .toBuffer();
+  let output: Buffer;
+  try {
+    output = await sharp(input)
+      .rotate()
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: OUTPUT_IMAGE_QUALITY })
+      .toBuffer();
+  } catch {
+    throw new PhotoValidationError("We couldn't process that image. Try a different file.");
+  }
 
   const uploaded = await put(buildBlobPath(file), output, {
     access: "public",

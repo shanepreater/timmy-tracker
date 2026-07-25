@@ -47,6 +47,12 @@ describe("validatePebblePhoto", () => {
       error: "Photo must be 8 MB or smaller.",
     });
   });
+
+  it("rejects empty files", () => {
+    expect(validatePebblePhoto(makeFile({ size: 0 }))).toEqual({
+      error: "Photo file is empty.",
+    });
+  });
 });
 
 describe("uploadPebblePhoto", () => {
@@ -93,6 +99,18 @@ describe("uploadPebblePhoto", () => {
     );
     expect(put).not.toHaveBeenCalled();
     expect(sharp).not.toHaveBeenCalled();
+  });
+
+  it("throws PhotoValidationError when sharp cannot process the file", async () => {
+    toBuffer.mockRejectedValue(new Error("bad image"));
+
+    await expect(uploadPebblePhoto(makeFile())).rejects.toEqual(
+      expect.objectContaining({
+        name: "PhotoValidationError",
+        message: "We couldn't process that image. Try a different file.",
+      }),
+    );
+    expect(put).not.toHaveBeenCalled();
   });
 });
 

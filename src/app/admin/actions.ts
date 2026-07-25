@@ -12,7 +12,12 @@ import {
   removePebblePhoto,
   verifyPebble,
 } from "@/lib/pebbles";
-import { deletePebblePhoto, uploadPebblePhoto, validatePebblePhoto } from "@/lib/pebble-photos";
+import {
+  PhotoValidationError,
+  deletePebblePhoto,
+  uploadPebblePhoto,
+  validatePebblePhoto,
+} from "@/lib/pebble-photos";
 import {
   validateSubmitPebbleInput,
   validateCoordinates,
@@ -121,7 +126,14 @@ export async function addPebbleAction(
         return { status: "error", errors: { photo: validation.error } };
       }
 
-      photoUrl = await uploadPebblePhoto(photo);
+      try {
+        photoUrl = await uploadPebblePhoto(photo);
+      } catch (error) {
+        if (error instanceof PhotoValidationError) {
+          return { status: "error", errors: { photo: error.message } };
+        }
+        throw error;
+      }
     }
   }
 

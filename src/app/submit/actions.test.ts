@@ -5,11 +5,16 @@ const submitPebble = vi.fn();
 const requireAllowedUser = vi.fn();
 const uploadPebblePhoto = vi.fn();
 const validatePebblePhoto = vi.fn();
+class FakePhotoValidationError extends Error {}
 
 class FakeUnauthorizedError extends Error {}
 
 vi.mock("@/lib/pebbles", () => ({ submitPebble }));
-vi.mock("@/lib/pebble-photos", () => ({ uploadPebblePhoto, validatePebblePhoto }));
+vi.mock("@/lib/pebble-photos", () => ({
+  uploadPebblePhoto,
+  validatePebblePhoto,
+  PhotoValidationError: FakePhotoValidationError,
+}));
 vi.mock("@/lib/auth-guards", () => ({
   requireAllowedUser,
   UnauthorizedError: FakeUnauthorizedError,
@@ -181,6 +186,25 @@ describe("submitPebbleAction", () => {
         undefined,
         "https://blob.example/photo.webp",
       );
+    });
+
+    it("returns a photo error when upload throws PhotoValidationError", async () => {
+      vi.resetModules();
+      uploadPebblePhoto.mockRejectedValue(
+        new FakePhotoValidationError("We couldn't process that image. Try a different file."),
+      );
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      data.set("photo", new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" }));
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({
+        status: "error",
+        errors: { photo: "We couldn't process that image. Try a different file." },
+      });
+      expect(submitPebble).not.toHaveBeenCalled();
     });
   });
 });
