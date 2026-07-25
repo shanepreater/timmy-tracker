@@ -6,6 +6,7 @@ import {
   removeAllowedUserAction,
   toggleAllowedUserAdminAction,
 } from "@/app/admin/actions";
+import { Button } from "@/components/Button";
 
 type ManageUsersProps = {
   allowedUsers: AllowedUser[];
@@ -16,26 +17,23 @@ export function ManageUsers({ allowedUsers, pendingRequests }: ManageUsersProps)
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-4">
-        <h3 className="text-xl font-semibold">Pending requests</h3>
+        <h3 className="heading-3">Pending requests</h3>
         {pendingRequests.length === 0 ? (
-          <p className="text-zinc-600 dark:text-zinc-400">No pending requests.</p>
+          <p className="text-stone-600 dark:text-stone-400">No pending requests.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {pendingRequests.map((request) => (
-              <li
-                key={request.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"
-              >
+              <li key={request.id} className="card flex items-center justify-between gap-4">
                 <span>
                   {request.name ? `${request.name} — ` : ""}
                   {request.email}
                 </span>
                 <div className="flex gap-2">
                   <form action={approveAccessRequestAction.bind(null, request.id)}>
-                    <button type="submit">Approve</button>
+                    <Button type="submit">Approve</Button>
                   </form>
                   <form action={denyAccessRequestAction.bind(null, request.id)}>
-                    <button type="submit">Deny</button>
+                    <Button type="submit" variant="danger">Deny</Button>
                   </form>
                 </div>
               </li>
@@ -45,23 +43,22 @@ export function ManageUsers({ allowedUsers, pendingRequests }: ManageUsersProps)
       </section>
 
       <section className="flex flex-col gap-4">
-        <h3 className="text-xl font-semibold">Allowed users</h3>
+        <h3 className="heading-3">Allowed users</h3>
         <ul className="flex flex-col gap-3">
           {allowedUsers.map((user) => (
-            <li
-              key={user.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"
-            >
+            <li key={user.id} className="card flex items-center justify-between gap-4">
               <span>
                 {user.name ? `${user.name} — ` : ""}
                 {user.email} {user.isAdmin && "(admin)"}
               </span>
               <div className="flex gap-2">
                 <form action={toggleAllowedUserAdminAction.bind(null, user.id, user.isAdmin)}>
-                  <button type="submit">{user.isAdmin ? "Remove admin" : "Make admin"}</button>
+                  <Button type="submit" variant="secondary">
+                    {user.isAdmin ? "Remove admin" : "Make admin"}
+                  </Button>
                 </form>
                 <form action={removeAllowedUserAction.bind(null, user.id)}>
-                  <button type="submit">Remove</button>
+                  <Button type="submit" variant="danger">Remove</Button>
                 </form>
               </div>
             </li>
@@ -69,11 +66,17 @@ export function ManageUsers({ allowedUsers, pendingRequests }: ManageUsersProps)
         </ul>
 
         <form action={addAllowedUserAction} className="flex items-center gap-2">
-          <input type="email" name="email" placeholder="email@example.com" required />
-          <label className="flex items-center gap-1">
+          <input
+            type="email"
+            name="email"
+            placeholder="email@example.com"
+            required
+            className="input"
+          />
+          <label className="flex items-center gap-1 text-sm text-stone-700 dark:text-stone-300">
             <input type="checkbox" name="isAdmin" /> Admin
           </label>
-          <button type="submit">Add user</button>
+          <Button type="submit">Add user</Button>
         </form>
       </section>
     </div>

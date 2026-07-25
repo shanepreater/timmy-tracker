@@ -10,6 +10,7 @@ const MAX_WIDTHS = {
 const GAPS = {
   4: "gap-4",
   8: "gap-8",
+  16: "gap-16",
 } as const;
 
 type PageContainerProps = {

@@ -37,4 +37,10 @@ describe("PageContainer", () => {
 
     expect(screen.getByRole("main").className).toContain("gap-4");
   });
+
+  it("applies a gap of 16", () => {
+    render(<PageContainer gap={16}>content</PageContainer>);
+
+    expect(screen.getByRole("main").className).toContain("gap-16");
+  });
 });
