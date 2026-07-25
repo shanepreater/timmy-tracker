@@ -41,7 +41,7 @@ body {
  * Design-token primitives (docs/design-ui-redesign.md). Kept as plain
  * classes rather than React wrapper components for headings/cards/
  * inputs, since they carry no variant logic — a Button component is
- * the one primitive that does (see src/components/ui/Button.tsx).
+ * the one primitive that does (see src/components/Button.tsx).
  */
 @layer components {
   .heading-1 {
