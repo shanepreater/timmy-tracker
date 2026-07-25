@@ -59,7 +59,7 @@ DATABASE_URL="postgresql://timmy:timmy@localhost:5432/timmy_tracker"
 and database keeps this project isolated from anything else running on
 your local Postgres.
 
-### `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — Google Maps
+### `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` / `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` — Google Maps
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and
    create (or pick) a project.
