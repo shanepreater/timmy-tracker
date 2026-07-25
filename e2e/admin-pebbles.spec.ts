@@ -106,15 +106,15 @@ test("admin can verify a pending pebble, add one, and move it", async ({ page, c
 
   const addedRow = page.getByRole("listitem").filter({ hasText: ADD_MARKER });
   await expect(addedRow).toBeVisible();
-  await addedRow.getByRole("textbox", { name: "Lat" }).fill("33.3");
-  await addedRow.getByRole("textbox", { name: "Long" }).fill("-44.4");
+  await addedRow.getByRole("spinbutton", { name: "Lat" }).fill("33.3");
+  await addedRow.getByRole("spinbutton", { name: "Long" }).fill("-44.4");
   await addedRow.getByRole("button", { name: "Save location" }).click();
 
   await expect(
-    page.getByRole("listitem").filter({ hasText: ADD_MARKER }).getByRole("textbox", { name: "Lat" }),
+    page.getByRole("listitem").filter({ hasText: ADD_MARKER }).getByRole("spinbutton", { name: "Lat" }),
   ).toHaveValue("33.3");
   await expect(
-    page.getByRole("listitem").filter({ hasText: ADD_MARKER }).getByRole("textbox", { name: "Long" }),
+    page.getByRole("listitem").filter({ hasText: ADD_MARKER }).getByRole("spinbutton", { name: "Long" }),
   ).toHaveValue("-44.4");
 
   const addedPebble = await prisma!.pebble.findFirst({ where: { depositedBy: ADD_MARKER } });
