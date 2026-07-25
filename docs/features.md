@@ -20,6 +20,8 @@ completed items should be read from git history.
   gate, whitelist model, and access request workflow.
 * [docs/design-admin-pebbles.md](design-admin-pebbles.md) - admin pebble
   add/verify/move workflows.
+* [docs/design-ui-redesign.md](design-ui-redesign.md) - design tokens,
+  shared primitives, and the Tim-photo header/favicon treatment.
 
 ## Backlog
 
@@ -164,8 +166,11 @@ Acceptance criteria:
 
 ### [ ] UI redesign
 Design brief:
-Redesign the visual layer to a more intentional Material-inspired system
-while preserving existing feature flags and behaviors.
+Redesign the visual layer to a more intentional design-token-driven
+system while preserving existing feature flags and behaviors. See
+[docs/design-ui-redesign.md](design-ui-redesign.md) (deviates from the
+original "Material-inspired" phrasing below — see that doc's decision
+table for why).
 
 The admin screen should have a tab header for the different sections rather than a continuous list.
 
