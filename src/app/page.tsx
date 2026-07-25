@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { Map } from "@/components/Map";
-import { Logo } from "@/components/Logo";
+import { ButtonLink } from "@/components/ButtonLink";
 import { PageContainer } from "@/components/PageContainer";
 import { featureFlags } from "@/lib/feature-flags";
 import { getVerifiedPebbles } from "@/lib/pebbles";
@@ -18,21 +17,18 @@ export default async function Home() {
   return (
     <PageContainer maxWidth="6xl">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <Logo size={56} />
-          <h1 className="heading-1">Timmy Tracker</h1>
-        </div>
+        <h1 className="heading-1">Timmy Tracker</h1>
         <p className="text-lg leading-8 text-stone-600 dark:text-stone-400">
           In memory of Tim, this map tracks where the stones carrying his
           ashes have been placed by the people who loved him.
         </p>
+        {featureFlags.submitPebble && (
+          <ButtonLink href="/submit" className="self-start">
+            Submit a pebble
+          </ButtonLink>
+        )}
       </div>
       <Map pebbles={pebbles} />
-      {featureFlags.submitPebble && (
-        <Link href="/submit" className="link self-start">
-          Submit a pebble
-        </Link>
-      )}
     </PageContainer>
   );
 }

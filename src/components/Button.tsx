@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -21,11 +21,19 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 /**
+ * Shared with ButtonLink, which needs the same look on a next/link
+ * instead of a native <button> — a CTA that navigates isn't a submit
+ * action, so it shouldn't be a <button> semantically.
+ */
+export function buttonClasses(variant: ButtonVariant = "primary", className?: string) {
+  return [baseClasses, variantClasses[variant], className].filter(Boolean).join(" ");
+}
+
+/**
  * Wraps a native <button> — same accessible role/text as before this
  * primitive existed, so existing getByRole("button", { name }) tests
  * keep working untouched. See docs/design-ui-redesign.md.
  */
 export function Button({ variant = "primary", className, ...props }: ButtonProps) {
-  const classes = [baseClasses, variantClasses[variant], className].filter(Boolean).join(" ");
-  return <button className={classes} {...props} />;
+  return <button className={buttonClasses(variant, className)} {...props} />;
 }
