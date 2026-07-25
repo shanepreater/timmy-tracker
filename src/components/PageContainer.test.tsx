@@ -25,4 +25,16 @@ describe("PageContainer", () => {
 
     expect(screen.getByRole("main").className).toContain("max-w-6xl");
   });
+
+  it("defaults to a gap of 8", () => {
+    render(<PageContainer>content</PageContainer>);
+
+    expect(screen.getByRole("main").className).toContain("gap-8");
+  });
+
+  it("applies the requested gap", () => {
+    render(<PageContainer gap={4}>content</PageContainer>);
+
+    expect(screen.getByRole("main").className).toContain("gap-4");
+  });
 });
