@@ -20,6 +20,9 @@ vi.mock("@/components/AppHeader", () => ({
     </div>
   ),
 }));
+vi.mock("@/components/SiteHeader", () => ({
+  SiteHeader: () => <div data-testid="site-header" />,
+}));
 
 beforeEach(() => {
   authMock.mockReset();
@@ -34,7 +37,7 @@ afterEach(() => {
 });
 
 describe("AuthGate", () => {
-  it("renders children directly when the flag is off, even without a session", async () => {
+  it("renders the site header + children when the flag is off, even without a session", async () => {
     vi.stubEnv("FEATURE_AUTH_GATE", "");
     vi.resetModules();
     authMock.mockResolvedValue(null);
@@ -42,6 +45,7 @@ describe("AuthGate", () => {
 
     render(await AuthGate({ children: <div data-testid="app-content" /> }));
 
+    expect(screen.getByTestId("site-header")).toBeInTheDocument();
     expect(screen.getByTestId("app-content")).toBeInTheDocument();
     expect(redirect).not.toHaveBeenCalled();
   });
@@ -67,6 +71,7 @@ describe("AuthGate", () => {
 
     render(await AuthGate({ children: <div data-testid="app-content" /> }));
 
+    expect(screen.getByTestId("site-header")).toBeInTheDocument();
     expect(screen.getByTestId("request-access")).toHaveTextContent("nobody@example.com");
     expect(screen.queryByTestId("app-content")).not.toBeInTheDocument();
   });
