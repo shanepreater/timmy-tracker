@@ -140,6 +140,16 @@ describe("uploadPebblePhoto", () => {
     );
     expect(url).toBe("https://blob.example/private/photo.webp?download=1");
   });
+
+  it("rethrows the original error when the private fallback also fails", async () => {
+    const publicError = new Error("network unreachable");
+    put.mockRejectedValueOnce(publicError).mockRejectedValueOnce(new Error("private also down"));
+
+    await expect(uploadPebblePhoto(makeFile({ name: "tim.png", type: "image/png" }))).rejects.toBe(
+      publicError,
+    );
+    expect(put).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("deletePebblePhoto", () => {

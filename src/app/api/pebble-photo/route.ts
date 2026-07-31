@@ -2,11 +2,18 @@ import { get } from "@vercel/blob";
 import type { NextRequest } from "next/server";
 
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
+const ALLOWED_PATH_PREFIX = "/pebbles/";
+const ALLOWED_PATH_SUFFIX = ".webp";
 
 function isAllowedBlobUrl(value: string): boolean {
   try {
     const parsed = new URL(value);
-    return parsed.protocol === "https:" && parsed.hostname.endsWith(BLOB_HOST_SUFFIX);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname.endsWith(BLOB_HOST_SUFFIX) &&
+      parsed.pathname.startsWith(ALLOWED_PATH_PREFIX) &&
+      parsed.pathname.endsWith(ALLOWED_PATH_SUFFIX)
+    );
   } catch {
     return false;
   }
@@ -26,13 +33,13 @@ export async function GET(request: NextRequest) {
       result = await get(blobUrl, { access: "private" });
     }
 
-    if (result.statusCode !== 200 || !result.stream) {
+    if (!result || result.statusCode !== 200 || !result.stream) {
       return new Response("Photo not found.", { status: 404 });
     }
 
     return new Response(result.stream, {
       headers: {
-        "content-type": result.blob.contentType,
+        "content-type": result.blob.contentType ?? "application/octet-stream",
         "cache-control": "public, max-age=300",
       },
     });

@@ -6,7 +6,6 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const MAX_IMAGE_DIMENSION = 2000;
 export const OUTPUT_IMAGE_QUALITY = 80;
 export const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const PRIVATE_STORE_ACCESS_ERROR = "Cannot use public access on a private store";
 
 export class PhotoValidationError extends Error {
   constructor(message: string) {
@@ -79,19 +78,19 @@ export async function uploadPebblePhoto(file: File): Promise<string> {
     });
 
     return uploaded.url;
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes(PRIVATE_STORE_ACCESS_ERROR)) {
-      throw error;
+  } catch (publicError) {
+    // Some Blob stores are configured private-only; fall back to a private
+    // upload and store the SDK-provided access URL in that case.
+    try {
+      const uploaded = await put(path, output, {
+        access: "private",
+        contentType: "image/webp",
+      });
+
+      return uploaded.downloadUrl;
+    } catch {
+      throw publicError;
     }
-
-    // Some Blob stores are configured private-only; use a private upload
-    // and store the SDK-provided access URL in that case.
-    const uploaded = await put(path, output, {
-      access: "private",
-      contentType: "image/webp",
-    });
-
-    return uploaded.downloadUrl;
   }
 }
 
