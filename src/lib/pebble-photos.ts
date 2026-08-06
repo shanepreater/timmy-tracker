@@ -69,12 +69,29 @@ export async function uploadPebblePhoto(file: File): Promise<string> {
     throw new PhotoValidationError("We couldn't process that image. Try a different file.");
   }
 
-  const uploaded = await put(buildBlobPath(file), output, {
-    access: "public",
-    contentType: "image/webp",
-  });
+  const path = buildBlobPath(file);
 
-  return uploaded.url;
+  try {
+    const uploaded = await put(path, output, {
+      access: "public",
+      contentType: "image/webp",
+    });
+
+    return uploaded.url;
+  } catch (publicError) {
+    // Some Blob stores are configured private-only; fall back to a private
+    // upload and store the SDK-provided access URL in that case.
+    try {
+      const uploaded = await put(path, output, {
+        access: "private",
+        contentType: "image/webp",
+      });
+
+      return uploaded.downloadUrl;
+    } catch {
+      throw publicError;
+    }
+  }
 }
 
 export async function deletePebblePhoto(url: string): Promise<void> {

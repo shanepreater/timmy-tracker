@@ -103,7 +103,10 @@ test("admin can verify a pending pebble, add one, and move it", async ({ page, c
   await page.getByLabel("Date deposited").fill("2026-01-01");
   await page.getByRole("button", { name: "Add pebble" }).click();
 
-  await expect(page.getByRole("status")).toHaveText(/pebble added/i);
+  const addSection = page.locator("section", {
+    has: page.getByRole("heading", { name: "Add a pebble" }),
+  });
+  await expect(addSection.getByRole("status")).toHaveText(/pebble added/i);
 
   const addedRow = page.getByRole("listitem").filter({ hasText: ADD_MARKER });
   await expect(addedRow).toBeVisible();

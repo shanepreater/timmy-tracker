@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { config } from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import sharp from "sharp";
 
 config({ path: ".env" });
 config({ path: ".env.local" });
@@ -35,10 +36,16 @@ test("submit flow uploads a real photo and persists photoUrl", async ({ page }) 
   await page.getByRole("textbox", { name: "Deposited by" }).fill(MARKER);
   await page.getByLabel("Date deposited").fill("2026-01-01");
 
-  const pngBytes = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9yQ7sG0AAAAASUVORK5CYII=",
-    "base64",
-  );
+  const pngBytes = await sharp({
+    create: {
+      width: 16,
+      height: 16,
+      channels: 4,
+      background: { r: 10, g: 140, b: 220, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
 
   await page
     .getByLabel("Photo (optional)")
@@ -56,6 +63,8 @@ test("submit flow uploads a real photo and persists photoUrl", async ({ page }) 
   expect(stored).not.toBeNull();
   expect(stored?.photoUrl).toMatch(/^https:\/\//);
 
-  const response = await page.request.get(stored!.photoUrl!);
+  const response = await page.request.get(
+    `/api/pebble-photo?url=${encodeURIComponent(stored!.photoUrl!)}`,
+  );
   expect(response.ok()).toBe(true);
 });

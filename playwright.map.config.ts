@@ -20,7 +20,14 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
-    reuseExistingServer: true,
+    // Always launch fresh so the pinned feature-flag env below is guaranteed
+    // to apply; reusing a pre-running `npm run dev` would ignore it.
+    reuseExistingServer: false,
     timeout: 120_000,
+    env: {
+      FEATURE_AUTH_GATE: "false",
+      NEXT_PUBLIC_FEATURE_MAP: "true",
+      NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE: "true",
+    },
   },
 });

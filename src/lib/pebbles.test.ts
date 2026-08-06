@@ -5,6 +5,10 @@ const create = vi.fn();
 const update = vi.fn();
 const findUnique = vi.fn();
 
+vi.mock("@/lib/pebble-photo-url", () => ({
+  toPebblePhotoDisplayUrl: (url: string) => `/api/pebble-photo?url=${encodeURIComponent(url)}`,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: { pebble: { findMany, create, update, findUnique } },
 }));
@@ -57,6 +61,30 @@ describe("getVerifiedPebbles", () => {
     findMany.mockResolvedValue([pebble]);
 
     await expect(getVerifiedPebbles()).resolves.toEqual([pebble]);
+  });
+
+  it("maps non-null photo URLs to app-served display URLs", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        photoUrl: "https://blob.example/photo.webp",
+      },
+    ]);
+
+    await expect(getVerifiedPebbles()).resolves.toEqual([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        photoUrl: "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fphoto.webp",
+      },
+    ]);
   });
 });
 
@@ -119,6 +147,23 @@ describe("listAllPebbles", () => {
     expect(findMany).toHaveBeenCalledWith({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
+  });
+
+  it("maps photo URLs to app-served display URLs", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        status: "VERIFIED",
+        photoUrl: "https://blob.example/photo.webp",
+      },
+    ]);
+
+    const result = await listAllPebbles();
+    expect(result[0]?.photoUrl).toBe("/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fphoto.webp");
   });
 });
 

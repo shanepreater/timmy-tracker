@@ -55,14 +55,37 @@ export function Map({ pebbles }: MapProps) {
         gestureHandling="greedy"
         disableDefaultUI={false}
       >
-        {pebbles.map((pebble) => (
-          <AdvancedMarker
-            key={pebble.id}
-            position={{ lat: pebble.latitude, lng: pebble.longitude }}
-            title={`${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`}
-            onClick={() => setSelectedPebbleId(pebble.id)}
-          />
-        ))}
+        {pebbles.map((pebble) => {
+          const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
+
+          if (featureFlags.pebblePhotos && pebble.photoUrl) {
+            return (
+              <AdvancedMarker
+                key={pebble.id}
+                position={{ lat: pebble.latitude, lng: pebble.longitude }}
+                title={title}
+                onClick={() => setSelectedPebbleId(pebble.id)}
+              >
+                <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-stone-100 shadow-lg dark:border-stone-900 dark:bg-stone-800">
+                  <PebblePhoto
+                    src={pebble.photoUrl}
+                    alt={`Marker photo for ${pebble.depositedBy}`}
+                    className="h-full w-full"
+                  />
+                </div>
+              </AdvancedMarker>
+            );
+          }
+
+          return (
+            <AdvancedMarker
+              key={pebble.id}
+              position={{ lat: pebble.latitude, lng: pebble.longitude }}
+              title={title}
+              onClick={() => setSelectedPebbleId(pebble.id)}
+            />
+          );
+        })}
 
         {selectedPebble && (
           <InfoWindow

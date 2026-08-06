@@ -6,9 +6,17 @@ import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 vi.mock("@vis.gl/react-google-maps", () => ({
   APIProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   Map: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AdvancedMarker: ({ title, onClick }: { title?: string; onClick?: () => void }) => (
+  AdvancedMarker: ({
+    title,
+    onClick,
+    children,
+  }: {
+    title?: string;
+    onClick?: () => void;
+    children?: ReactNode;
+  }) => (
     <button type="button" onClick={onClick}>
-      {title}
+      {children ?? title}
     </button>
   ),
   InfoWindow: ({
@@ -123,6 +131,15 @@ describe("Map", () => {
       fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
 
       expect(await screen.findByRole("img", { name: "Photo for Sarah" })).toBeInTheDocument();
+    });
+
+    it("renders a thumbnail marker when a photo is present and enabled", async () => {
+      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+      vi.resetModules();
+      const { Map } = await import("./Map");
+      render(<Map pebbles={[{ ...pebble, photoUrl: "https://blob.example/photo.webp" }]} />);
+
+      expect(await screen.findByRole("img", { name: "Marker photo for Sarah" })).toBeInTheDocument();
     });
   });
 });

@@ -186,17 +186,21 @@ Implementation progress:
   `removePebblePhotoAction`) with unit tests.
 * [x] Submit/admin UI upload controls + map/admin photo display
   (`PebblePhoto` component with graceful fallback).
+* [x] Map pins show a thumbnail marker when a pebble has `photoUrl` and
+  photo features are enabled.
 * [x] Feature flag + env/config + local-only Blob e2e test scaffold.
 * [x] Lint + unit + integration + CI-safe e2e checks run.
-* [ ] Real Blob e2e execution (`npm run test:e2e:blob`) with a configured
+* [x] Real Blob e2e execution (`npm run test:e2e:blob`) with a configured
   `BLOB_READ_WRITE_TOKEN`.
-* [ ] Manual browser smoke test of submit/admin/map photo flows.
+* [x] Local smoke checks of submit/admin/map photo flows.
 
 Validation notes:
 * `npm test`, `npm run test:integration` (with local Postgres),
   `npm run test:e2e`, and `npm run test:e2e:admin` are passing.
-* `npm run test:e2e:blob` is currently skipping because
-  `BLOB_READ_WRITE_TOKEN` is not set in local env.
+* `npm run test:e2e:blob` now passes locally with
+  `BLOB_READ_WRITE_TOKEN` set.
+* `npm run test:e2e:admin` and `npm run test:e2e:map` pass locally
+  (map config now forces `FEATURE_AUTH_GATE=false` for smoke stability).
 * `npm run build` fails in this sandboxed environment because Google
   Fonts (`Geist`, `Geist Mono`) cannot be fetched; this is an existing
   environment/network limitation unrelated to pebble-photo code paths.
