@@ -8,6 +8,8 @@
   features, and the process for picking up and closing them out. Check
   here before proposing new work; git history has anything already
   closed.
+* [deploy-vercel.md](deploy-vercel.md) — step-by-step guide to standing
+  up a real Production deployment on Vercel for user testing.
 
 ## Conventions
 
