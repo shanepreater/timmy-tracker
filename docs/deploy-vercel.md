@@ -38,6 +38,18 @@ deployment" or "Domain launch hardening" backlog items in
 Steps 1–3 are one-time setup. Step 4 (minus migrations) repeats on
 every future push to `main` automatically.
 
+### Vercel CLI (optional)
+
+The Vercel CLI is installed as a devDependency (`npx vercel`, no global
+install needed — see `scripts/setup.sh`). It's not required — every
+step below can be done from the dashboard — but it saves copy-pasting
+connection strings for steps 3 and 5. One-time setup if you want it:
+
+```bash
+npx vercel login
+npx vercel link   # connects this checkout to the timmy-tracker project
+```
+
 ## 1. Provision Postgres
 
 1. In the Vercel dashboard, open the `timmy-tracker` project →
@@ -91,6 +103,11 @@ Environment variable changes only take effect on the **next**
 deployment — adding these before step 5's first deploy means you only
 need one deploy, not a redeploy after.
 
+With the CLI linked (see above), you can pull whatever's already set
+instead of copying values by hand: `npx vercel env pull
+.env.production.local --environment=production` (gitignored — don't
+commit it).
+
 ## 4. Update Google Cloud for the production URL
 
 Before testers can sign in, both Google credentials need to know about
@@ -116,13 +133,15 @@ link.
 
 1. Trigger the first deploy: **Deployments** tab → **Redeploy** on the
    latest `main` build (or just push any commit to `main` — every push
-   auto-deploys, per the GitHub integration already connected).
+   auto-deploys, per the GitHub integration already connected; or, with
+   the CLI linked, `npx vercel --prod`).
 2. Apply the schema to the production database — from your machine,
    using the **direct** (non-pooled) connection string this time, not
    the pooled one from step 1 (`prisma migrate deploy` needs a direct
-   connection):
+   connection). Copy `POSTGRES_URL_NON_POOLING` from the dashboard, or
+   from the `.env.production.local` pulled above:
    ```bash
-   DATABASE_URL="<POSTGRES_URL_NON_POOLING value from Vercel>" npx prisma migrate deploy
+   DATABASE_URL="<POSTGRES_URL_NON_POOLING value>" npx prisma migrate deploy
    ```
    This is the same command CI runs against its throwaway Postgres
    service — see `.github/workflows/ci.yml`.
