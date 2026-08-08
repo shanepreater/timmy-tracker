@@ -24,3 +24,4 @@ if [ ! -f .env ]; then
 fi
 
 echo "Setup complete. See README.md#getting-your-keys for local Postgres + API key setup, then run 'npm run dev'."
+echo "Vercel CLI is available via 'npx vercel' (installed as a devDependency, no global install needed) — see docs/deploy-vercel.md to deploy."
