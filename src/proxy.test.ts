@@ -17,10 +17,10 @@ vi.mock("@/auth", () => ({
 
 type ProxyFn = (req: { auth: unknown; nextUrl: URL }) => NextResponse;
 
-function fakeRequest(pathname: string, session: unknown) {
+function fakeRequest(pathname: string, session: unknown, host = "localhost:3000") {
   return {
     auth: session,
-    nextUrl: new URL(`http://localhost:3000${pathname}`),
+    nextUrl: new URL(`http://${host}${pathname}`),
   };
 }
 
@@ -78,6 +78,51 @@ describe("proxy (Edge auth gate)", () => {
     const response = proxy(fakeRequest("/", { user: { email: "shane@example.com" } }));
 
     expect(response.status).not.toBe(307);
+  });
+});
+
+describe("proxy's canonical-host redirect", () => {
+  it("redirects www.trackingtim.com to the apex, preserving path and query", async () => {
+    vi.resetModules();
+    const proxy = await loadProxy();
+
+    const response = proxy(
+      fakeRequest("/submit?ref=card", null, "www.trackingtim.com"),
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "http://trackingtim.com/submit?ref=card",
+    );
+  });
+
+  it("redirects even with a session, so a www-only cookie can't keep masking the split", async () => {
+    vi.resetModules();
+    const proxy = await loadProxy();
+
+    const response = proxy(
+      fakeRequest("/", { user: { email: "shane@example.com" } }, "www.trackingtim.com"),
+    );
+
+    expect(response.status).toBe(308);
+  });
+
+  it("leaves the apex host alone", async () => {
+    vi.resetModules();
+    const proxy = await loadProxy();
+
+    const response = proxy(fakeRequest("/", null, "trackingtim.com"));
+
+    expect(response.status).not.toBe(308);
+  });
+
+  it("leaves unrelated hosts (localhost, vercel preview) alone", async () => {
+    vi.resetModules();
+    const proxy = await loadProxy();
+
+    const response = proxy(fakeRequest("/", null, "timmy-tracker-git-preview.vercel.app"));
+
+    expect(response.status).not.toBe(308);
   });
 });
 

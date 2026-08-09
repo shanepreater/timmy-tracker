@@ -2,12 +2,35 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { featureFlags } from "@/lib/feature-flags";
 
+// The session cookie Auth.js sets is host-only (no `domain` attribute
+// configured in src/auth.ts), so a session minted on one host is
+// invisible on the other: www.trackingtim.com and trackingtim.com are
+// different origins as far as cookies are concerned. Without a
+// canonical redirect, a user who happens to land on www after signing
+// in on the apex (or vice versa) looks signed out there — this bit an
+// admin in production (401s from /api/pebble-photo/upload-token/submit
+// that didn't reproduce for whoever's session happened to already
+// match the host they were on). Redirecting the non-canonical host
+// here, before auth() ever runs, means a session only ever gets minted
+// against the canonical host, so the split can't recur.
+const CANONICAL_HOST = "trackingtim.com";
+const NON_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
+
 /**
  * Edge-safe half of the gate: JWT-only, no DB call (Prisma needs the
  * Node runtime). The whitelist check happens in the root layout
  * instead — see docs/design-access-control.md.
  */
 export default auth((req) => {
+  if (req.nextUrl.host === NON_CANONICAL_HOST) {
+    const canonicalUrl = new URL(req.nextUrl);
+    canonicalUrl.host = CANONICAL_HOST;
+    // 308: permanent + method-preserving, so a redirected POST (e.g.
+    // the upload-token route) stays a POST instead of being coerced to
+    // GET the way a 301/302 would.
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
   if (!featureFlags.authGate) {
     return NextResponse.next();
   }
