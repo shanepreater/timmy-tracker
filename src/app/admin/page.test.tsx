@@ -5,6 +5,7 @@ const getAllowedUser = vi.fn();
 const listAllowedUsers = vi.fn();
 const listPendingAccessRequests = vi.fn();
 const listAllPebbles = vi.fn();
+const listOrphanedPhotoUploads = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
@@ -16,6 +17,7 @@ vi.mock("@/lib/auth-guards", () => ({ getAllowedUser }));
 vi.mock("@/lib/allowed-users", () => ({ listAllowedUsers }));
 vi.mock("@/lib/access-requests", () => ({ listPendingAccessRequests }));
 vi.mock("@/lib/pebbles", () => ({ listAllPebbles }));
+vi.mock("@/lib/pebble-photo-orphans", () => ({ listOrphanedPhotoUploads }));
 vi.mock("next/navigation", () => ({ notFound, redirect }));
 vi.mock("@/components/ManageUsers", () => ({
   ManageUsers: () => <div data-testid="manage-users" />,
@@ -23,15 +25,21 @@ vi.mock("@/components/ManageUsers", () => ({
 vi.mock("@/components/AdminPebbles", () => ({
   AdminPebbles: () => <div data-testid="admin-pebbles" />,
 }));
+vi.mock("@/components/ManageOrphanedPhotos", () => ({
+  ManageOrphanedPhotos: () => <div data-testid="manage-orphaned-photos" />,
+}));
 
 beforeEach(() => {
   getAllowedUser.mockReset();
   listAllowedUsers.mockReset();
   listPendingAccessRequests.mockReset();
   listAllPebbles.mockReset();
+  listOrphanedPhotoUploads.mockReset();
+  listOrphanedPhotoUploads.mockResolvedValue([]);
   notFound.mockClear();
   redirect.mockClear();
   vi.stubEnv("FEATURE_ADMIN", "true");
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
 
 afterEach(() => {
@@ -91,6 +99,23 @@ describe("AdminPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: /manage pebbles/i })).toBeInTheDocument();
     expect(screen.getByTestId("admin-pebbles")).toBeInTheDocument();
     expect(screen.queryByTestId("manage-users")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("manage-orphaned-photos")).not.toBeInTheDocument();
+    expect(listOrphanedPhotoUploads).not.toHaveBeenCalled();
+  });
+
+  it("shows orphaned photo uploads on the pebbles tab when pebble photos are enabled", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams("pebbles") }));
+
+    expect(screen.getByTestId("manage-orphaned-photos")).toBeInTheDocument();
+    expect(listOrphanedPhotoUploads).toHaveBeenCalledTimes(1);
   });
 
   it("shows tab navigation to switch between sections", async () => {

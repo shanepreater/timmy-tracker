@@ -7,6 +7,7 @@ import { approveAccessRequest, denyAccessRequest } from "@/lib/access-requests";
 import { addAllowedUser, removeAllowedUser, setAllowedUserAdmin } from "@/lib/allowed-users";
 import {
   createPebbleByAdmin,
+  deletePebble,
   getPebblePhotoUrl,
   movePebble,
   removePebblePhoto,
@@ -17,6 +18,10 @@ import {
   deletePebblePhoto,
   processUploadedPebblePhoto,
 } from "@/lib/pebble-photos";
+import {
+  deleteAllOrphanedPhotoUploads,
+  deleteOrphanedPhotoUpload,
+} from "@/lib/pebble-photo-orphans";
 import {
   validateSubmitPebbleInput,
   validateCoordinates,
@@ -32,6 +37,12 @@ import {
 function assertAdminFeatureEnabled() {
   if (!featureFlags.admin) {
     throw new Error("The admin section isn't enabled.");
+  }
+}
+
+function assertPebblePhotosEnabled() {
+  if (!featureFlags.pebblePhotos) {
+    throw new Error("Pebble photos aren't enabled.");
   }
 }
 
@@ -155,10 +166,7 @@ export async function movePebbleAction(id: string, formData: FormData) {
 export async function removePebblePhotoAction(id: string, _formData: FormData) {
   assertAdminFeatureEnabled();
   await requireAdmin();
-
-  if (!featureFlags.pebblePhotos) {
-    throw new Error("Pebble photos aren't enabled.");
-  }
+  assertPebblePhotosEnabled();
 
   const photoUrl = await getPebblePhotoUrl(id);
   if (!photoUrl) {
@@ -170,4 +178,44 @@ export async function removePebblePhotoAction(id: string, _formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/");
+}
+
+/**
+ * Permanently removes a pebble (pending or verified), and its photo
+ * from Blob storage if it has one. No separate "remove photo first"
+ * step required — same reasoning as removePebblePhotoAction's
+ * Blob-delete-then-DB-update ordering (docs/design-pebble-photos.md):
+ * a failure between the two steps here just leaves a deleted DB row,
+ * not a dangling reference anything renders.
+ */
+export async function deletePebbleAction(id: string, _formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+
+  const photoUrl = await getPebblePhotoUrl(id);
+  if (photoUrl) {
+    await deletePebblePhoto(photoUrl);
+  }
+  await deletePebble(id);
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function deleteOrphanedPhotoUploadAction(url: string, _formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  assertPebblePhotosEnabled();
+
+  await deleteOrphanedPhotoUpload(url);
+  revalidatePath("/admin");
+}
+
+export async function deleteAllOrphanedPhotoUploadsAction(_formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  assertPebblePhotosEnabled();
+
+  await deleteAllOrphanedPhotoUploads();
+  revalidatePath("/admin");
 }

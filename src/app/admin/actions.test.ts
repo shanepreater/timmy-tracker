@@ -11,8 +11,11 @@ const getPebblePhotoUrl = vi.fn();
 const removePebblePhoto = vi.fn();
 const verifyPebble = vi.fn();
 const movePebble = vi.fn();
+const deletePebble = vi.fn();
 const deletePebblePhoto = vi.fn();
 const processUploadedPebblePhoto = vi.fn();
+const deleteOrphanedPhotoUpload = vi.fn();
+const deleteAllOrphanedPhotoUploads = vi.fn();
 const revalidatePath = vi.fn();
 class FakePhotoValidationError extends Error {}
 
@@ -29,11 +32,16 @@ vi.mock("@/lib/pebbles", () => ({
   removePebblePhoto,
   verifyPebble,
   movePebble,
+  deletePebble,
 }));
 vi.mock("@/lib/pebble-photos", () => ({
   deletePebblePhoto,
   processUploadedPebblePhoto,
   PhotoValidationError: FakePhotoValidationError,
+}));
+vi.mock("@/lib/pebble-photo-orphans", () => ({
+  deleteOrphanedPhotoUpload,
+  deleteAllOrphanedPhotoUploads,
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -52,6 +60,9 @@ const {
   verifyPebbleAction,
   movePebbleAction,
   removePebblePhotoAction,
+  deletePebbleAction,
+  deleteOrphanedPhotoUploadAction,
+  deleteAllOrphanedPhotoUploadsAction,
 } = await import("./actions");
 
 const VALID_PEBBLE_FIELDS = {
@@ -75,10 +86,16 @@ beforeEach(() => {
   removePebblePhoto.mockResolvedValue(undefined);
   verifyPebble.mockReset();
   movePebble.mockReset();
+  deletePebble.mockReset();
+  deletePebble.mockResolvedValue(undefined);
   deletePebblePhoto.mockReset();
   deletePebblePhoto.mockResolvedValue(undefined);
   processUploadedPebblePhoto.mockReset();
   processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
+  deleteOrphanedPhotoUpload.mockReset();
+  deleteOrphanedPhotoUpload.mockResolvedValue(undefined);
+  deleteAllOrphanedPhotoUploads.mockReset();
+  deleteAllOrphanedPhotoUploads.mockResolvedValue(0);
   revalidatePath.mockReset();
   vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
@@ -133,6 +150,15 @@ describe("admin actions require FEATURE_ADMIN", () => {
     await expect(
       disabled.movePebbleAction("p1", formData({ latitude: "1", longitude: "2" })),
     ).rejects.toThrow("isn't enabled");
+    await expect(disabled.deletePebbleAction("p1", formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(
+      disabled.deleteOrphanedPhotoUploadAction("https://blob.example/x.jpg", formData()),
+    ).rejects.toThrow("isn't enabled");
+    await expect(disabled.deleteAllOrphanedPhotoUploadsAction(formData())).rejects.toThrow(
+      "isn't enabled",
+    );
 
     const addPebbleResult = await disabled.addPebbleAction(
       { status: "idle" },
@@ -394,5 +420,103 @@ describe("removePebblePhotoAction", () => {
     expect(removePebblePhoto).toHaveBeenCalledWith("p1");
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+});
+
+describe("deletePebbleAction", () => {
+  it("rejects when requireAdmin throws, without deleting", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(deletePebbleAction("p1", formData())).rejects.toThrow(
+      "Admin access required.",
+    );
+    expect(deletePebble).not.toHaveBeenCalled();
+  });
+
+  it("deletes the pebble and revalidates when it has no photo", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getPebblePhotoUrl.mockResolvedValue(null);
+
+    await deletePebbleAction("p1", formData());
+
+    expect(deletePebblePhoto).not.toHaveBeenCalled();
+    expect(deletePebble).toHaveBeenCalledWith("p1");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("deletes the photo blob first when the pebble has one", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getPebblePhotoUrl.mockResolvedValue("https://blob.example/photo.webp");
+
+    await deletePebbleAction("p1", formData());
+
+    expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/photo.webp");
+    expect(deletePebble).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("deleteOrphanedPhotoUploadAction", () => {
+  it("rejects when requireAdmin throws, without deleting", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(
+      deleteOrphanedPhotoUploadAction("https://blob.example/raw.jpg", formData()),
+    ).rejects.toThrow("Admin access required.");
+    expect(deleteOrphanedPhotoUpload).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(
+      deleteOrphanedPhotoUploadAction("https://blob.example/raw.jpg", formData()),
+    ).rejects.toThrow("Pebble photos aren't enabled.");
+    expect(deleteOrphanedPhotoUpload).not.toHaveBeenCalled();
+  });
+
+  it("deletes the given upload and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    const { deleteOrphanedPhotoUploadAction: deleteWithPhotos } = await import("./actions");
+
+    await deleteWithPhotos("https://blob.example/raw.jpg", formData());
+
+    expect(deleteOrphanedPhotoUpload).toHaveBeenCalledWith("https://blob.example/raw.jpg");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+});
+
+describe("deleteAllOrphanedPhotoUploadsAction", () => {
+  it("rejects when requireAdmin throws, without deleting", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(deleteAllOrphanedPhotoUploadsAction(formData())).rejects.toThrow(
+      "Admin access required.",
+    );
+    expect(deleteAllOrphanedPhotoUploads).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(deleteAllOrphanedPhotoUploadsAction(formData())).rejects.toThrow(
+      "Pebble photos aren't enabled.",
+    );
+  });
+
+  it("deletes every orphan and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    const { deleteAllOrphanedPhotoUploadsAction: deleteAllWithPhotos } = await import(
+      "./actions"
+    );
+
+    await deleteAllWithPhotos(formData());
+
+    expect(deleteAllOrphanedPhotoUploads).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
   });
 });

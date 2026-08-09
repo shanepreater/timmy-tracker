@@ -4,8 +4,10 @@ import { getAllowedUser } from "@/lib/auth-guards";
 import { listAllowedUsers } from "@/lib/allowed-users";
 import { listPendingAccessRequests } from "@/lib/access-requests";
 import { listAllPebbles } from "@/lib/pebbles";
+import { listOrphanedPhotoUploads } from "@/lib/pebble-photo-orphans";
 import { ManageUsers } from "@/components/ManageUsers";
 import { AdminPebbles } from "@/components/AdminPebbles";
+import { ManageOrphanedPhotos } from "@/components/ManageOrphanedPhotos";
 import { PageContainer } from "@/components/PageContainer";
 import { AdminTabs, type AdminTab } from "@/components/AdminTabs";
 
@@ -32,10 +34,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const { tab } = await searchParams;
   const activeTab: AdminTab = tab === "pebbles" ? "pebbles" : "access";
 
-  const [allowedUsers, pendingRequests, pebbles] = await Promise.all([
+  const [allowedUsers, pendingRequests, pebbles, orphanedUploads] = await Promise.all([
     listAllowedUsers(),
     listPendingAccessRequests(),
     listAllPebbles(),
+    featureFlags.pebblePhotos ? listOrphanedPhotoUploads() : Promise.resolve([]),
   ]);
 
   return (
@@ -51,6 +54,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         <div className="flex flex-col gap-8">
           <h2 className="heading-2">Manage pebbles</h2>
           <AdminPebbles pebbles={pebbles} />
+          {featureFlags.pebblePhotos && <ManageOrphanedPhotos orphans={orphanedUploads} />}
         </div>
       )}
     </PageContainer>
