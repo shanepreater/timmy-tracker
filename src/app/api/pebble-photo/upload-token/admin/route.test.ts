@@ -7,6 +7,11 @@ vi.mock("@/lib/auth-guards", () => ({ requireAdmin }));
 const createPebblePhotoUploadTokenResponse = vi.fn();
 vi.mock("@/lib/pebble-photo-upload-token", () => ({ createPebblePhotoUploadTokenResponse }));
 
+const getDynamicFeatureFlags = vi.fn();
+vi.mock("@/lib/dynamic-feature-flags", () => ({
+  getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
+}));
+
 function fakeRequest() {
   return new Request("https://example.com/api/pebble-photo/upload-token/admin", {
     method: "POST",
@@ -21,7 +26,8 @@ beforeEach(() => {
     await authorize();
     return { type: "blob.generate-client-token", clientToken: "fake-token" };
   });
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+  getDynamicFeatureFlags.mockReset();
+  getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: false, pebblePhotos: true });
   vi.stubEnv("FEATURE_ADMIN", "true");
 });
 
@@ -43,8 +49,7 @@ describe("POST /api/pebble-photo/upload-token/admin", () => {
   });
 
   it("rejects with 403 when pebble photos aren't enabled", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
-    vi.resetModules();
+    getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: false, pebblePhotos: false });
     const { POST } = await import("./route");
 
     const response = await POST(fakeRequest());
@@ -53,7 +58,6 @@ describe("POST /api/pebble-photo/upload-token/admin", () => {
   });
 
   it("always requires admin, rejecting with 400 if not admin", async () => {
-    vi.resetModules();
     requireAdmin.mockRejectedValue(new Error("Admin access required."));
     const { POST } = await import("./route");
 
@@ -66,7 +70,6 @@ describe("POST /api/pebble-photo/upload-token/admin", () => {
   });
 
   it("succeeds for an admin", async () => {
-    vi.resetModules();
     requireAdmin.mockResolvedValue({ email: "admin@example.com", isAdmin: true });
     const { POST } = await import("./route");
 

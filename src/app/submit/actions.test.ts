@@ -4,6 +4,7 @@ import type { SubmitPebbleState } from "./actions";
 const submitPebble = vi.fn();
 const requireAllowedUser = vi.fn();
 const processUploadedPebblePhoto = vi.fn();
+const getDynamicFeatureFlags = vi.fn();
 class FakePhotoValidationError extends Error {}
 
 class FakeUnauthorizedError extends Error {}
@@ -16,6 +17,9 @@ vi.mock("@/lib/pebble-photos", () => ({
 vi.mock("@/lib/auth-guards", () => ({
   requireAllowedUser,
   UnauthorizedError: FakeUnauthorizedError,
+}));
+vi.mock("@/lib/dynamic-feature-flags", () => ({
+  getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
 }));
 
 const VALID = {
@@ -41,8 +45,8 @@ beforeEach(() => {
   requireAllowedUser.mockReset();
   processUploadedPebblePhoto.mockReset();
   processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "true");
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
+  getDynamicFeatureFlags.mockReset();
+  getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: true, pebblePhotos: false });
   vi.stubEnv("FEATURE_AUTH_GATE", "");
 });
 
@@ -53,7 +57,7 @@ afterEach(() => {
 
 describe("submitPebbleAction", () => {
   it("errors without calling submitPebble when the feature flag is off", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "");
+    getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: false, pebblePhotos: false });
     vi.resetModules();
     const { submitPebbleAction } = await import("./actions");
 
@@ -138,7 +142,7 @@ describe("submitPebbleAction", () => {
 
   describe("with pebble photos enabled", () => {
     beforeEach(() => {
-      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+      getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: true, pebblePhotos: true });
     });
 
     it("ignores an empty rawPhotoUrl (no photo selected)", async () => {

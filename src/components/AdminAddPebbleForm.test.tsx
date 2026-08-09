@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { AdminAddPebbleForm } from "./AdminAddPebbleForm";
+import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
+import type { DynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 
 const addPebbleAction = vi.fn();
 
@@ -19,6 +21,16 @@ vi.mock("@vis.gl/react-google-maps", () => ({
   useMapsLibrary: () => undefined,
 }));
 
+const OFF_FLAGS: DynamicFeatureFlags = { map: false, submitPebble: false, pebblePhotos: false };
+
+function renderForm(flags: Partial<DynamicFeatureFlags> = {}) {
+  return render(
+    <FeatureFlagsProvider flags={{ ...OFF_FLAGS, ...flags }}>
+      <AdminAddPebbleForm />
+    </FeatureFlagsProvider>,
+  );
+}
+
 beforeEach(() => {
   addPebbleAction.mockReset();
   addPebbleAction.mockResolvedValue({ status: "idle" });
@@ -31,7 +43,7 @@ afterEach(() => {
 
 describe("AdminAddPebbleForm", () => {
   it("renders a field for each pebble attribute plus an add button", () => {
-    render(<AdminAddPebbleForm />);
+    renderForm();
 
     expect(screen.getByText("Latitude")).toBeInTheDocument();
     expect(screen.getByText("Longitude")).toBeInTheDocument();
@@ -42,21 +54,19 @@ describe("AdminAddPebbleForm", () => {
   });
 
   it("shows the optional photo input when the photo feature is enabled", () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    render(<AdminAddPebbleForm />);
+    renderForm({ pebblePhotos: true });
 
     expect(screen.getByLabelText("Photo (optional)")).toBeInTheDocument();
   });
 
   it("disables submit while a selected photo is still uploading", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     let resolveUpload: (url: string) => void;
     uploadRawPebblePhoto.mockReturnValue(
       new Promise<string>((resolve) => {
         resolveUpload = resolve;
       }),
     );
-    render(<AdminAddPebbleForm />);
+    renderForm({ pebblePhotos: true });
 
     fireEvent.change(screen.getByLabelText("Photo (optional)"), {
       target: {
@@ -79,7 +89,7 @@ describe("AdminAddPebbleForm", () => {
       status: "error",
       errors: { latitude: "Enter a latitude between -90 and 90." },
     });
-    const { container } = render(<AdminAddPebbleForm />);
+    const { container } = renderForm();
 
     fireEvent.submit(container.querySelector("form")!);
 
@@ -90,7 +100,7 @@ describe("AdminAddPebbleForm", () => {
 
   it("shows a confirmation and keeps the form visible on success", async () => {
     addPebbleAction.mockResolvedValue({ status: "success" });
-    const { container } = render(<AdminAddPebbleForm />);
+    const { container } = renderForm();
 
     fireEvent.submit(container.querySelector("form")!);
 
@@ -100,7 +110,7 @@ describe("AdminAddPebbleForm", () => {
 
   it("doesn't render the lookup UI when no Maps API key is configured", () => {
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
-    render(<AdminAddPebbleForm />);
+    renderForm();
 
     expect(screen.queryByRole("button", { name: /look up/i })).not.toBeInTheDocument();
   });

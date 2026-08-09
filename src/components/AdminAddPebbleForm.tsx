@@ -6,6 +6,7 @@ import { addPebbleAction, type AddPebbleState } from "@/app/admin/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
 import { PebblePhotoField } from "@/components/PebblePhotoField";
 import { Button } from "@/components/Button";
+import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 
 const initialState: AddPebbleState = { status: "idle" };
 
@@ -17,7 +18,7 @@ const initialState: AddPebbleState = { status: "idle" };
  */
 export function AdminAddPebbleForm() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
+  const { pebblePhotos: pebblePhotosEnabled } = useFeatureFlags();
   const [state, formAction, isPending] = useActionState(addPebbleAction, initialState);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");

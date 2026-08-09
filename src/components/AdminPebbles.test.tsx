@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminPebbles } from "./AdminPebbles";
 import type { Pebble } from "@prisma/client";
 
@@ -37,32 +37,28 @@ describe("AdminPebbles", () => {
     confirmSpy.mockReset();
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it("shows a message when there are no pending submissions", () => {
-    render(<AdminPebbles pebbles={[]} />);
+    render(<AdminPebbles pebbles={[]} pebblePhotosEnabled={false} />);
 
     expect(screen.getByText(/no pending submissions/i)).toBeInTheDocument();
   });
 
   it("lists pending pebbles with a verify control", () => {
-    render(<AdminPebbles pebbles={[basePebble]} />);
+    render(<AdminPebbles pebbles={[basePebble]} pebblePhotosEnabled={false} />);
 
     expect(screen.getByText(/Sarah — Mar 1, 2026/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Verify" })).toBeInTheDocument();
   });
 
   it("shows a message when there are no verified pebbles", () => {
-    render(<AdminPebbles pebbles={[]} />);
+    render(<AdminPebbles pebbles={[]} pebblePhotosEnabled={false} />);
 
     expect(screen.getByText(/no verified pebbles yet/i)).toBeInTheDocument();
   });
 
   it("lists verified pebbles with a pre-filled move form", () => {
     const verified: Pebble = { ...basePebble, id: "p2", status: "VERIFIED", verifiedAt: new Date() };
-    render(<AdminPebbles pebbles={[verified]} />);
+    render(<AdminPebbles pebbles={[verified]} pebblePhotosEnabled={false} />);
 
     expect(screen.getByRole("button", { name: "Save location" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("48.8584")).toBeInTheDocument();
@@ -71,7 +67,7 @@ describe("AdminPebbles", () => {
 
   it("deletes a pending pebble after confirming", () => {
     confirmSpy.mockReturnValue(true);
-    render(<AdminPebbles pebbles={[basePebble]} />);
+    render(<AdminPebbles pebbles={[basePebble]} pebblePhotosEnabled={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -83,7 +79,7 @@ describe("AdminPebbles", () => {
 
   it("doesn't delete when the confirmation is cancelled", () => {
     confirmSpy.mockReturnValue(false);
-    render(<AdminPebbles pebbles={[basePebble]} />);
+    render(<AdminPebbles pebbles={[basePebble]} pebblePhotosEnabled={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -93,7 +89,7 @@ describe("AdminPebbles", () => {
   it("shows a delete control for verified pebbles too", () => {
     confirmSpy.mockReturnValue(true);
     const verified: Pebble = { ...basePebble, id: "p2", status: "VERIFIED", verifiedAt: new Date() };
-    render(<AdminPebbles pebbles={[verified]} />);
+    render(<AdminPebbles pebbles={[verified]} pebblePhotosEnabled={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -101,7 +97,6 @@ describe("AdminPebbles", () => {
   });
 
   it("shows remove photo controls when the feature is enabled and photoUrl exists", () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     const withPhoto: Pebble = {
       ...basePebble,
       id: "p2",
@@ -110,13 +105,27 @@ describe("AdminPebbles", () => {
       photoUrl: "https://blob.example/photo.webp",
     };
 
-    render(<AdminPebbles pebbles={[withPhoto]} />);
+    render(<AdminPebbles pebbles={[withPhoto]} pebblePhotosEnabled={true} />);
 
     expect(screen.getByRole("button", { name: "Remove photo" })).toBeInTheDocument();
   });
 
+  it("hides remove photo controls when the feature is disabled, even with a photoUrl", () => {
+    const withPhoto: Pebble = {
+      ...basePebble,
+      id: "p2",
+      status: "VERIFIED",
+      verifiedAt: new Date(),
+      photoUrl: "https://blob.example/photo.webp",
+    };
+
+    render(<AdminPebbles pebbles={[withPhoto]} pebblePhotosEnabled={false} />);
+
+    expect(screen.queryByRole("button", { name: "Remove photo" })).not.toBeInTheDocument();
+  });
+
   it("renders the add-pebble form", () => {
-    render(<AdminPebbles pebbles={[]} />);
+    render(<AdminPebbles pebbles={[]} pebblePhotosEnabled={false} />);
 
     expect(screen.getByText("Add pebble form")).toBeInTheDocument();
   });

@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guards";
 import { featureFlags } from "@/lib/feature-flags";
+import {
+  getDynamicFeatureFlags,
+  setDynamicFeatureFlag,
+  type DynamicFeatureFlags,
+} from "@/lib/dynamic-feature-flags";
 import { approveAccessRequest, denyAccessRequest } from "@/lib/access-requests";
 import { addAllowedUser, removeAllowedUser, setAllowedUserAdmin } from "@/lib/allowed-users";
 import {
@@ -21,6 +26,8 @@ import {
 import {
   deleteAllOrphanedPhotoUploads,
   deleteOrphanedPhotoUpload,
+  getOrphanMinAgeMinutes,
+  setOrphanMinAgeMinutes,
 } from "@/lib/pebble-photo-orphans";
 import {
   validateSubmitPebbleInput,
@@ -40,8 +47,9 @@ function assertAdminFeatureEnabled() {
   }
 }
 
-function assertPebblePhotosEnabled() {
-  if (!featureFlags.pebblePhotos) {
+async function assertPebblePhotosEnabled() {
+  const { pebblePhotos } = await getDynamicFeatureFlags();
+  if (!pebblePhotos) {
     throw new Error("Pebble photos aren't enabled.");
   }
 }
@@ -120,7 +128,8 @@ export async function addPebbleAction(
   }
 
   let photoUrl: string | undefined;
-  if (featureFlags.pebblePhotos) {
+  const { pebblePhotos } = await getDynamicFeatureFlags();
+  if (pebblePhotos) {
     const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
     if (rawPhotoUrl) {
       try {
@@ -166,7 +175,7 @@ export async function movePebbleAction(id: string, formData: FormData) {
 export async function removePebblePhotoAction(id: string, _formData: FormData) {
   assertAdminFeatureEnabled();
   await requireAdmin();
-  assertPebblePhotosEnabled();
+  await assertPebblePhotosEnabled();
 
   const photoUrl = await getPebblePhotoUrl(id);
   if (!photoUrl) {
@@ -205,7 +214,7 @@ export async function deletePebbleAction(id: string, _formData: FormData) {
 export async function deleteOrphanedPhotoUploadAction(url: string, _formData: FormData) {
   assertAdminFeatureEnabled();
   await requireAdmin();
-  assertPebblePhotosEnabled();
+  await assertPebblePhotosEnabled();
 
   await deleteOrphanedPhotoUpload(url);
   revalidatePath("/admin");
@@ -214,8 +223,48 @@ export async function deleteOrphanedPhotoUploadAction(url: string, _formData: Fo
 export async function deleteAllOrphanedPhotoUploadsAction(_formData: FormData) {
   assertAdminFeatureEnabled();
   await requireAdmin();
-  assertPebblePhotosEnabled();
+  await assertPebblePhotosEnabled();
 
-  await deleteAllOrphanedPhotoUploads();
+  const minAgeMinutes = await getOrphanMinAgeMinutes();
+  await deleteAllOrphanedPhotoUploads(minAgeMinutes);
+  revalidatePath("/admin");
+}
+
+const DYNAMIC_FLAG_KEYS: readonly (keyof DynamicFeatureFlags)[] = [
+  "map",
+  "submitPebble",
+  "pebblePhotos",
+];
+
+/** Same toggle-the-opposite-of-current-value shape as toggleAllowedUserAdminAction. */
+export async function updateFeatureFlagAction(
+  key: keyof DynamicFeatureFlags,
+  currentValue: boolean,
+  _formData: FormData,
+) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+
+  if (!DYNAMIC_FLAG_KEYS.includes(key)) {
+    throw new Error("Unknown feature flag.");
+  }
+
+  await setDynamicFeatureFlag(key, !currentValue);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/submit");
+}
+
+export async function updateOrphanMinAgeMinutesAction(formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  await assertPebblePhotosEnabled();
+
+  const minutes = Number(formData.get("minAgeMinutes"));
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    throw new Error("Enter a non-negative number of minutes.");
+  }
+
+  await setOrphanMinAgeMinutes(minutes);
   revalidatePath("/admin");
 }

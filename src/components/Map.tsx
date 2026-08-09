@@ -7,7 +7,7 @@ import {
   AdvancedMarker,
   InfoWindow,
 } from "@vis.gl/react-google-maps";
-import { featureFlags } from "@/lib/feature-flags";
+import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 import { PebblePhoto } from "@/components/PebblePhoto";
 
@@ -20,7 +20,7 @@ type MapProps = {
 
 /**
  * World map showing where Tim's pebbles have been placed.
- * Gated by featureFlags.map until the Maps API key and Map ID are wired
+ * Gated by flags.map until the Maps API key and Map ID are wired
  * up, so the site stays usable with the flag off. Uses AdvancedMarker
  * rather than the deprecated google.maps.Marker — see
  * https://developers.google.com/maps/documentation/javascript/advanced-markers/migration.
@@ -28,11 +28,12 @@ type MapProps = {
  * mapId prop and the placeholder fallback when it's unset.
  */
 export function Map({ pebbles }: MapProps) {
+  const flags = useFeatureFlags();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
   const [selectedPebbleId, setSelectedPebbleId] = useState<string | null>(null);
 
-  if (!featureFlags.map || !apiKey || !mapId) {
+  if (!flags.map || !apiKey || !mapId) {
     return (
       <div
         role="status"
@@ -58,7 +59,7 @@ export function Map({ pebbles }: MapProps) {
         {pebbles.map((pebble) => {
           const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
 
-          if (featureFlags.pebblePhotos && pebble.photoUrl) {
+          if (flags.pebblePhotos && pebble.photoUrl) {
             return (
               <AdvancedMarker
                 key={pebble.id}
@@ -93,7 +94,7 @@ export function Map({ pebbles }: MapProps) {
             onCloseClick={() => setSelectedPebbleId(null)}
           >
             <div className="flex flex-col gap-1 text-sm text-stone-900">
-              {featureFlags.pebblePhotos && selectedPebble.photoUrl && (
+              {flags.pebblePhotos && selectedPebble.photoUrl && (
                 <PebblePhoto
                   src={selectedPebble.photoUrl}
                   alt={`Photo for ${selectedPebble.depositedBy}`}

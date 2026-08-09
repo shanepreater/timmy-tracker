@@ -6,12 +6,13 @@ import { submitPebbleAction, type SubmitPebbleState } from "@/app/submit/actions
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
 import { PebblePhotoField } from "@/components/PebblePhotoField";
 import { Button } from "@/components/Button";
+import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 
 const initialState: SubmitPebbleState = { status: "idle" };
 
 export function SubmitPebbleForm() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
+  const { pebblePhotos: pebblePhotosEnabled } = useFeatureFlags();
   const [state, formAction, isPending] = useActionState(submitPebbleAction, initialState);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");

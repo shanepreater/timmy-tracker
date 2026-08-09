@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { featureFlags } from "@/lib/feature-flags";
+import { getDynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import { createPebblePhotoUploadTokenResponse } from "@/lib/pebble-photo-upload-token";
 
@@ -10,7 +11,8 @@ import { createPebblePhotoUploadTokenResponse } from "@/lib/pebble-photo-upload-
  * the gate is off, same as the rest of the site).
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!featureFlags.pebblePhotos || !featureFlags.submitPebble) {
+  const { pebblePhotos, submitPebble } = await getDynamicFeatureFlags();
+  if (!pebblePhotos || !submitPebble) {
     return NextResponse.json({ error: "Photo uploads aren't enabled." }, { status: 403 });
   }
 
