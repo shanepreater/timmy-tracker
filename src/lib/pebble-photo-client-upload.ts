@@ -1,5 +1,5 @@
 import { upload } from "@vercel/blob/client";
-import { RAW_UPLOAD_PATH_PREFIX } from "@/lib/pebble-photo-constraints";
+import { RAW_UPLOAD_PATH_PREFIX, pathnameForUpload } from "@/lib/pebble-photo-constraints";
 
 export type PebblePhotoUploadContext = "submit" | "admin";
 
@@ -27,8 +27,11 @@ export async function uploadRawPebblePhoto(
 ): Promise<string> {
   // The token route (onBeforeGenerateToken) can't rewrite this pathname
   // — it's whatever the client requests, not something the server can
-  // override — so RAW_UPLOAD_PATH_PREFIX has to be applied here.
-  const blob = await upload(`${RAW_UPLOAD_PATH_PREFIX}${file.name}`, file, {
+  // override — so RAW_UPLOAD_PATH_PREFIX and the extension fix-up both
+  // have to happen here. See pathnameForUpload's comment: Vercel Blob
+  // infers content type from this pathname's extension, so it must
+  // reflect the validated file.type, not the original file.name.
+  const blob = await upload(pathnameForUpload(RAW_UPLOAD_PATH_PREFIX, file), file, {
     access: "private",
     handleUploadUrl: HANDLE_UPLOAD_URL[context],
   });
