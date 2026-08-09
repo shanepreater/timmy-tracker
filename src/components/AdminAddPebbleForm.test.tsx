@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { AdminAddPebbleForm } from "./AdminAddPebbleForm";
@@ -7,6 +7,11 @@ const addPebbleAction = vi.fn();
 
 vi.mock("@/app/admin/actions", () => ({
   addPebbleAction: (...args: unknown[]) => addPebbleAction(...args),
+}));
+
+const uploadRawPebblePhoto = vi.fn();
+vi.mock("@/lib/pebble-photo-client-upload", () => ({
+  uploadRawPebblePhoto: (...args: unknown[]) => uploadRawPebblePhoto(...args),
 }));
 
 vi.mock("@vis.gl/react-google-maps", () => ({
@@ -41,6 +46,32 @@ describe("AdminAddPebbleForm", () => {
     render(<AdminAddPebbleForm />);
 
     expect(screen.getByLabelText("Photo (optional)")).toBeInTheDocument();
+  });
+
+  it("disables submit while a selected photo is still uploading", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    let resolveUpload: (url: string) => void;
+    uploadRawPebblePhoto.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveUpload = resolve;
+      }),
+    );
+    render(<AdminAddPebbleForm />);
+
+    fireEvent.change(screen.getByLabelText("Photo (optional)"), {
+      target: {
+        files: [new File([new Uint8Array(32)], "tim.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    expect(await screen.findByText("Uploading photo…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add pebble/i })).toBeDisabled();
+
+    resolveUpload!("https://blob.example/pebbles-raw/tim.jpg?download=1");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /add pebble/i })).not.toBeDisabled(),
+    );
   });
 
   it("shows field errors returned by the action", async () => {

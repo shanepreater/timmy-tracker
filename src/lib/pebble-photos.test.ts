@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const del = vi.fn();
 const put = vi.fn();
+const get = vi.fn();
 
 const rotate = vi.fn();
 const resize = vi.fn();
@@ -9,56 +10,49 @@ const webp = vi.fn();
 const toBuffer = vi.fn();
 const sharp = vi.fn();
 
-vi.mock("@vercel/blob", () => ({ del, put }));
+vi.mock("@vercel/blob", () => ({ del, put, get }));
 vi.mock("sharp", () => ({
   default: (...args: unknown[]) => sharp(...args),
 }));
 
-const {
-  validatePebblePhoto,
-  uploadPebblePhoto,
-  deletePebblePhoto,
-  PhotoValidationError,
-  MAX_UPLOAD_BYTES,
-} = await import("./pebble-photos");
+const { processUploadedPebblePhoto, deletePebblePhoto, PhotoValidationError } =
+  await import("./pebble-photos");
 
-function makeFile(options: { name?: string; type?: string; size?: number } = {}) {
-  const { name = "tim.jpg", type = "image/jpeg", size } = options;
-  const content = new Uint8Array(size ?? 32);
-  return new File([content], name, { type });
+const RAW_URL = "https://blob.example/pebbles-raw/1700000000000-aaaaaaaa-tim-photo.jpg";
+
+function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
 }
 
-describe("validatePebblePhoto", () => {
-  it("accepts jpeg/png/webp files up to 8MB", () => {
-    expect(validatePebblePhoto(makeFile({ type: "image/jpeg" }))).toEqual({});
-    expect(validatePebblePhoto(makeFile({ type: "image/png" }))).toEqual({});
-    expect(validatePebblePhoto(makeFile({ type: "image/webp" }))).toEqual({});
-    expect(validatePebblePhoto(makeFile({ size: MAX_UPLOAD_BYTES }))).toEqual({});
-  });
+function rawGetResult(bytes = new Uint8Array([9, 9, 9])) {
+  return {
+    statusCode: 200,
+    stream: streamOf(bytes),
+    headers: new Headers(),
+    blob: {
+      url: RAW_URL,
+      downloadUrl: RAW_URL,
+      pathname: "pebbles-raw/1700000000000-aaaaaaaa-tim-photo.jpg",
+      contentDisposition: "",
+      cacheControl: "",
+      uploadedAt: new Date(),
+      etag: "etag",
+      contentType: "image/jpeg",
+      size: bytes.byteLength,
+    },
+  };
+}
 
-  it("rejects unsupported mime types", () => {
-    expect(validatePebblePhoto(makeFile({ type: "image/gif" }))).toEqual({
-      error: "Upload a JPG, PNG, or WebP image.",
-    });
-  });
-
-  it("rejects files larger than 8MB", () => {
-    expect(validatePebblePhoto(makeFile({ size: MAX_UPLOAD_BYTES + 1 }))).toEqual({
-      error: "Photo must be 8 MB or smaller.",
-    });
-  });
-
-  it("rejects empty files", () => {
-    expect(validatePebblePhoto(makeFile({ size: 0 }))).toEqual({
-      error: "Photo file is empty.",
-    });
-  });
-});
-
-describe("uploadPebblePhoto", () => {
+describe("processUploadedPebblePhoto", () => {
   beforeEach(() => {
     put.mockReset();
     del.mockReset();
+    get.mockReset();
     sharp.mockReset();
     rotate.mockReset();
     resize.mockReset();
@@ -70,16 +64,20 @@ describe("uploadPebblePhoto", () => {
     resize.mockReturnValue({ webp });
     webp.mockReturnValue({ toBuffer });
     toBuffer.mockResolvedValue(Buffer.from("processed"));
+    get.mockResolvedValue(rawGetResult());
     put.mockResolvedValue({
       url: "https://blob.example/pebbles/photo.webp",
       downloadUrl: "https://blob.example/pebbles/photo.webp?download=1",
     });
+    del.mockResolvedValue(undefined);
   });
 
-  it("re-encodes to webp and uploads publicly", async () => {
-    const url = await uploadPebblePhoto(makeFile({ name: "Tim Photo.JPG", type: "image/jpeg" }));
+  it("fetches the raw upload, re-encodes to webp, uploads publicly, and deletes the raw upload", async () => {
+    const url = await processUploadedPebblePhoto(RAW_URL);
 
+    expect(get).toHaveBeenCalledWith(RAW_URL, { access: "public" });
     expect(sharp).toHaveBeenCalledTimes(1);
+    expect(sharp).toHaveBeenCalledWith(Buffer.from([9, 9, 9]));
     expect(rotate).toHaveBeenCalledTimes(1);
     expect(resize).toHaveBeenCalledWith({
       width: 2000,
@@ -89,25 +87,38 @@ describe("uploadPebblePhoto", () => {
     });
     expect(webp).toHaveBeenCalledWith({ quality: 80 });
     expect(put).toHaveBeenCalledWith(
-      expect.stringMatching(/^pebbles\/\d+-[a-f0-9]{8}-tim-photo\.webp$/),
+      expect.stringMatching(/^pebbles\/\d+-[a-f0-9]{8}-.+\.webp$/),
       Buffer.from("processed"),
       { access: "public", contentType: "image/webp" },
     );
+    expect(del).toHaveBeenCalledWith(RAW_URL);
     expect(url).toBe("https://blob.example/pebbles/photo.webp");
   });
 
-  it("throws PhotoValidationError for invalid files", async () => {
-    await expect(uploadPebblePhoto(makeFile({ type: "image/gif" }))).rejects.toBeInstanceOf(
+  it("falls back to a private fetch when the public fetch fails", async () => {
+    get.mockReset();
+    get.mockRejectedValueOnce(new Error("not public")).mockResolvedValueOnce(rawGetResult());
+
+    await processUploadedPebblePhoto(RAW_URL);
+
+    expect(get).toHaveBeenNthCalledWith(1, RAW_URL, { access: "public" });
+    expect(get).toHaveBeenNthCalledWith(2, RAW_URL, { access: "private" });
+  });
+
+  it("throws PhotoValidationError when the raw upload can't be found", async () => {
+    get.mockReset();
+    get.mockResolvedValue(null);
+
+    await expect(processUploadedPebblePhoto(RAW_URL)).rejects.toBeInstanceOf(
       PhotoValidationError,
     );
-    expect(put).not.toHaveBeenCalled();
     expect(sharp).not.toHaveBeenCalled();
   });
 
   it("throws PhotoValidationError when sharp cannot process the file", async () => {
     toBuffer.mockRejectedValue(new Error("bad image"));
 
-    await expect(uploadPebblePhoto(makeFile())).rejects.toEqual(
+    await expect(processUploadedPebblePhoto(RAW_URL)).rejects.toEqual(
       expect.objectContaining({
         name: "PhotoValidationError",
         message: "We couldn't process that image. Try a different file.",
@@ -124,7 +135,7 @@ describe("uploadPebblePhoto", () => {
         downloadUrl: "https://blob.example/private/photo.webp?download=1",
       });
 
-    const url = await uploadPebblePhoto(makeFile({ name: "tim.png", type: "image/png" }));
+    const url = await processUploadedPebblePhoto(RAW_URL);
 
     expect(put).toHaveBeenNthCalledWith(
       1,
@@ -145,10 +156,16 @@ describe("uploadPebblePhoto", () => {
     const publicError = new Error("network unreachable");
     put.mockRejectedValueOnce(publicError).mockRejectedValueOnce(new Error("private also down"));
 
-    await expect(uploadPebblePhoto(makeFile({ name: "tim.png", type: "image/png" }))).rejects.toBe(
-      publicError,
-    );
+    await expect(processUploadedPebblePhoto(RAW_URL)).rejects.toBe(publicError);
     expect(put).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't fail the whole call when deleting the raw upload fails", async () => {
+    del.mockRejectedValueOnce(new Error("already gone"));
+
+    const url = await processUploadedPebblePhoto(RAW_URL);
+
+    expect(url).toBe("https://blob.example/pebbles/photo.webp");
   });
 });
 

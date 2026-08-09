@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { addPebbleAction, type AddPebbleState } from "@/app/admin/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
+import { PebblePhotoField } from "@/components/PebblePhotoField";
 import { Button } from "@/components/Button";
 
 const initialState: AddPebbleState = { status: "idle" };
@@ -21,6 +22,7 @@ export function AdminAddPebbleForm() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Reset the form after a successful add — an admin adding pebbles is
@@ -139,18 +141,14 @@ export function AdminAddPebbleForm() {
       </label>
 
       {pebblePhotosEnabled && (
-        <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
-          Photo (optional)
-          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="input" />
-          {errors.photo && (
-            <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
-              {errors.photo}
-            </span>
-          )}
-        </label>
+        <PebblePhotoField
+          context="admin"
+          error={errors.photo}
+          onUploadingChange={setPhotoUploading}
+        />
       )}
 
-      <Button type="submit" disabled={isPending} className="self-start">
+      <Button type="submit" disabled={isPending || photoUploading} className="self-start">
         {isPending ? "Adding…" : "Add pebble"}
       </Button>
     </form>

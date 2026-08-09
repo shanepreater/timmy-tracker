@@ -51,6 +51,12 @@ test("submit flow uploads a real photo and persists photoUrl", async ({ page }) 
     .getByLabel("Photo (optional)")
     .setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: pngBytes });
 
+  // The photo uploads to Blob as soon as it's selected, not on submit
+  // (see PebblePhotoField) — wait for that to finish so the hidden
+  // rawPhotoUrl field is populated before submitting, rather than
+  // racing ahead and submitting the pebble with no photo attached.
+  await expect(page.getByText("Uploading photo…")).toHaveCount(0);
+
   await page.getByRole("button", { name: "Submit pebble" }).click();
 
   await expect(page.getByRole("status")).toHaveText(/awaiting review/i);

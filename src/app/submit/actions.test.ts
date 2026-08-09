@@ -3,16 +3,14 @@ import type { SubmitPebbleState } from "./actions";
 
 const submitPebble = vi.fn();
 const requireAllowedUser = vi.fn();
-const uploadPebblePhoto = vi.fn();
-const validatePebblePhoto = vi.fn();
+const processUploadedPebblePhoto = vi.fn();
 class FakePhotoValidationError extends Error {}
 
 class FakeUnauthorizedError extends Error {}
 
 vi.mock("@/lib/pebbles", () => ({ submitPebble }));
 vi.mock("@/lib/pebble-photos", () => ({
-  uploadPebblePhoto,
-  validatePebblePhoto,
+  processUploadedPebblePhoto,
   PhotoValidationError: FakePhotoValidationError,
 }));
 vi.mock("@/lib/auth-guards", () => ({
@@ -41,10 +39,8 @@ beforeEach(() => {
   submitPebble.mockReset();
   submitPebble.mockResolvedValue(undefined);
   requireAllowedUser.mockReset();
-  uploadPebblePhoto.mockReset();
-  uploadPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
-  validatePebblePhoto.mockReset();
-  validatePebblePhoto.mockReturnValue({});
+  processUploadedPebblePhoto.mockReset();
+  processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
   vi.stubEnv("NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE", "true");
   vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
   vi.stubEnv("FEATURE_AUTH_GATE", "");
@@ -145,37 +141,29 @@ describe("submitPebbleAction", () => {
       vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     });
 
-    it("returns a photo error when validation fails", async () => {
+    it("ignores an empty rawPhotoUrl (no photo selected)", async () => {
       vi.resetModules();
-      validatePebblePhoto.mockReturnValue({ error: "Upload a JPG, PNG, or WebP image." });
       const { submitPebbleAction } = await import("./actions");
 
-      const data = formData(VALID);
-      data.set("photo", new File([new Uint8Array([1])], "bad.gif", { type: "image/gif" }));
+      const result = await submitPebbleAction(idle, formData(VALID));
 
-      const result = await submitPebbleAction(idle, data);
-
-      expect(result).toEqual({
-        status: "error",
-        errors: { photo: "Upload a JPG, PNG, or WebP image." },
-      });
-      expect(uploadPebblePhoto).not.toHaveBeenCalled();
-      expect(submitPebble).not.toHaveBeenCalled();
+      expect(result).toEqual({ status: "success" });
+      expect(processUploadedPebblePhoto).not.toHaveBeenCalled();
+      expect(submitPebble).toHaveBeenCalledWith(expect.anything(), undefined, undefined);
     });
 
-    it("uploads the file and passes photoUrl to submitPebble", async () => {
+    it("processes the raw upload and passes photoUrl to submitPebble", async () => {
       vi.resetModules();
       const { submitPebbleAction } = await import("./actions");
 
-      const data = formData(VALID);
-      const file = new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" });
-      data.set("photo", file);
+      const data = formData({ ...VALID, rawPhotoUrl: "https://blob.example/raw/tim.jpg" });
 
       const result = await submitPebbleAction(idle, data);
 
       expect(result).toEqual({ status: "success" });
-      expect(validatePebblePhoto).toHaveBeenCalledWith(file);
-      expect(uploadPebblePhoto).toHaveBeenCalledWith(file);
+      expect(processUploadedPebblePhoto).toHaveBeenCalledWith(
+        "https://blob.example/raw/tim.jpg",
+      );
       expect(submitPebble).toHaveBeenCalledWith(
         {
           latitude: 48.8584,
@@ -188,15 +176,14 @@ describe("submitPebbleAction", () => {
       );
     });
 
-    it("returns a photo error when upload throws PhotoValidationError", async () => {
+    it("returns a photo error when processing throws PhotoValidationError", async () => {
       vi.resetModules();
-      uploadPebblePhoto.mockRejectedValue(
+      processUploadedPebblePhoto.mockRejectedValue(
         new FakePhotoValidationError("We couldn't process that image. Try a different file."),
       );
       const { submitPebbleAction } = await import("./actions");
 
-      const data = formData(VALID);
-      data.set("photo", new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" }));
+      const data = formData({ ...VALID, rawPhotoUrl: "https://blob.example/raw/tim.jpg" });
 
       const result = await submitPebbleAction(idle, data);
 
