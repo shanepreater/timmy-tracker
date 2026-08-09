@@ -8,8 +8,21 @@ import { prisma } from "@/lib/prisma";
  * get/set-by-key primitive.
  */
 export async function getSetting(key: string): Promise<string | null> {
-  const row = await prisma.appSetting.findUnique({ where: { key } });
-  return row?.value ?? null;
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key } });
+    return row?.value ?? null;
+  } catch (error) {
+    // Fails closed, not crashed — getDynamicFeatureFlags() (and every
+    // page that renders regardless of flag state, e.g. the home page
+    // when the map flag is off) shouldn't hard-require a working
+    // Postgres connection just to read config. Same "missing row"
+    // fail-closed behavior every caller already handles, just also
+    // covering "couldn't reach the row" (no DATABASE_URL configured,
+    // e.g. the CI-safe e2e tier's webServer — see playwright.config.ts
+    // — or the database is genuinely down).
+    console.error(`getSetting(${key}) failed, treating as unset:`, error);
+    return null;
+  }
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {

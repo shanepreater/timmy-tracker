@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const findUnique = vi.fn();
 const upsert = vi.fn();
@@ -26,6 +26,21 @@ describe("getSetting", () => {
     findUnique.mockResolvedValue(null);
 
     expect(await getSetting("MISSING")).toBeNull();
+  });
+
+  describe("when the database is unreachable/misconfigured", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    afterEach(() => {
+      consoleError.mockClear();
+    });
+
+    it("fails closed (null) instead of throwing — pages that don't need a DB shouldn't crash", async () => {
+      findUnique.mockRejectedValue(new Error("Environment variable not found: DATABASE_URL."));
+
+      expect(await getSetting("FOO")).toBeNull();
+      expect(consoleError).toHaveBeenCalled();
+    });
   });
 });
 
