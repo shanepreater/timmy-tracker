@@ -30,6 +30,10 @@ completed items should be read from git history.
 Recommended sequence for finishing remaining work with minimum rework and
 fastest path to stable production:
 
+0. Live-testing feedback jumps the queue ahead of everything below:
+  "Delete a pebble (admin)" and "Orphaned photo-upload cleanup (admin)"
+  — both surfaced by the first real testers on the production
+  deployment (2026-08-09).
 1. Close out "Associate a photo with a location" (run real Blob e2e +
   manual smoke and mark complete).
 2. Complete "Base framework completion" (production env/runtime parity,
@@ -38,6 +42,9 @@ fastest path to stable production:
   runbook).
 4. Deliver "Fly-by mode" (high user value, no new provider coupling).
 5. Deliver "What3words support" (new provider integration and ops surface).
+6. Deliver "Multiple photos per pebble" (net-new scope expansion on an
+  already-shipped feature — lowest priority of the live-testing asks
+  since a single photo already works).
 
 This order intentionally prioritizes operational reliability and
 production confidence before adding net-new user features.
@@ -204,6 +211,12 @@ Validation notes:
 * `npm run build` fails in this sandboxed environment because Google
   Fonts (`Geist`, `Geist Mono`) cannot be fetched; this is an existing
   environment/network limitation unrelated to pebble-photo code paths.
+* **Production incident (2026-08-09)**: first real testers hit a hard
+  413 submitting a photo — Vercel Functions hard-cap request bodies at
+  4.5 MB, which local dev never exercises. Fixed by moving to a
+  client-side direct-to-Blob upload; see
+  [docs/design-pebble-photos.md](design-pebble-photos.md)'s
+  "Amendment (2026-08-09)" section for the full design and root cause.
 
 Acceptance criteria:
 * Supported image formats and max size are validated server-side.
@@ -212,6 +225,77 @@ Acceptance criteria:
 * Broken/missing media references fail gracefully in UI.
 * Authorization rules are enforced for who can add/remove photos.
 * Feature is behind a dedicated flag and defaults off.
+
+### [ ] Delete a pebble (admin)
+Design brief:
+Live-testing feedback (2026-08-09): there's currently no way to remove
+a pebble entirely — only verify, move, or (if it has a photo) clear
+the photo. Add admin-only deletion for pending or verified pebbles.
+
+Acceptance criteria:
+* Admin can delete any pebble (pending or verified) from `/admin`.
+* Deletion requires confirmation (accidental clicks shouldn't destroy
+  memorial data with no recovery path).
+* If the pebble has a photo, the associated Blob object is deleted
+  too (reuse `deletePebblePhoto()` — same as `removePebblePhotoAction`).
+* Deletion is `requireAdmin()`-gated, independent of the UI, same
+  "route protection policy" as every other admin action
+  (`docs/design-access-control.md`).
+* Map/admin views revalidate after deletion (`revalidatePath("/admin")`
+  and `revalidatePath("/")`, matching every other mutating admin
+  action).
+* Covered by unit tests (action) and a local-only e2e path alongside
+  the existing admin pebble flows.
+
+### [ ] Orphaned photo-upload cleanup (admin)
+Design brief:
+A byproduct of the client-upload architecture in
+[docs/design-pebble-photos.md](design-pebble-photos.md)'s "Amendment
+(2026-08-09)": a photo now uploads to Blob (under the `pebbles-raw/`
+prefix) as soon as it's selected, before the form is submitted. If the
+submitter abandons the form (closes the tab, never clicks Submit,
+picks a different photo instead), that raw upload is never processed
+or deleted — an orphan. Needs an admin-facing way to find and clear
+these out.
+
+Acceptance criteria:
+* Admin can list raw uploads under `pebbles-raw/` that are older than
+  some threshold (e.g. a day — a submission in progress shouldn't be
+  swept mid-fill) via Blob's `list()` API.
+* Admin can delete individual orphans or bulk-clear all of them.
+* Action is `requireAdmin()`-gated, same as every other admin
+  mutation.
+* Covered by unit tests (mocked Blob `list`/`del`).
+
+### [ ] Multiple photos per pebble
+Design brief:
+Live-testing feedback (2026-08-09): a main photo plus additional ones
+per pebble, not just the single photo the current
+`Pebble.photoUrl` column supports. Explicitly out of scope for the
+original "Associate a photo with a location" feature (see that design
+doc's "Deferred" section — the brief was singular, "**a** photo") —
+this supersedes that deferral. Needs its own design pass before
+implementation: at minimum, a `PebblePhoto` join table (replacing the
+single `photoUrl` column, with a migration for existing data), a
+"main" vs. "additional" ordering concept, per-photo upload/delete UI
+in both `SubmitPebbleForm` and `AdminAddPebbleForm`/`AdminPebbles`,
+and updated map/admin display components. The client-upload
+architecture from the amendment above (upload-on-select, per-photo
+raw URL) extends naturally to multiple files — no rework expected
+there.
+
+Acceptance criteria:
+* A pebble can have zero, one, or many photos.
+* Exactly one photo (if any exist) is designated the "main" photo,
+  shown on map markers/thumbnails; additional photos are reachable
+  from pebble detail/admin views.
+* Existing single-photo pebbles migrate cleanly (their `photoUrl`
+  becomes that pebble's main photo).
+* Upload/delete authorization rules match the existing single-photo
+  feature (submitter at creation time; admin any time).
+* Feature remains behind `NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS` (or a new
+  dedicated flag, if the design pass decides the data model change
+  needs its own rollout gate).
 
 ### [ ] Domain launch hardening (trackingtim.com)
 Design brief:
