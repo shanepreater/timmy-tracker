@@ -34,3 +34,34 @@ export function validatePhotoFile(file: File): string | null {
 
   return null;
 }
+
+const EXTENSION_BY_MIME_TYPE: Record<(typeof ALLOWED_MIME_TYPES)[number], string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+/**
+ * Vercel Blob infers a blob's content type from its pathname's
+ * extension when minting an upload token — not from File.type. Mobile
+ * capture (iOS in particular, which defaults to HEIC) can hand over a
+ * File whose `.type` reports as an allowed type — passing
+ * validatePhotoFile — while `.name` still carries the original
+ * capture's extension (`IMG_1234.HEIC`). Building the blob pathname
+ * from that name would infer a disallowed content type and get token
+ * generation rejected server-side, even though the file itself is
+ * fine. Always deriving the extension from the validated `.type`
+ * instead keeps the pathname's inferred content type in sync with
+ * what we actually validated. Only call this after validatePhotoFile
+ * has returned null — an unrecognized type means the caller skipped
+ * that check.
+ */
+export function pathnameForUpload(prefix: string, file: File): string {
+  const extension = EXTENSION_BY_MIME_TYPE[file.type as (typeof ALLOWED_MIME_TYPES)[number]];
+  if (!extension) {
+    throw new Error(`pathnameForUpload: unrecognized/unvalidated file type "${file.type}".`);
+  }
+
+  const baseName = file.name.replace(/\.[^./\\]+$/, "").trim() || "upload";
+  return `${prefix}${baseName}.${extension}`;
+}
