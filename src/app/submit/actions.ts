@@ -2,11 +2,7 @@
 
 import { featureFlags } from "@/lib/feature-flags";
 import { submitPebble } from "@/lib/pebbles";
-import {
-  PhotoValidationError,
-  uploadPebblePhoto,
-  validatePebblePhoto,
-} from "@/lib/pebble-photos";
+import { PhotoValidationError, processUploadedPebblePhoto } from "@/lib/pebble-photos";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import {
   validateSubmitPebbleInput,
@@ -18,18 +14,16 @@ export type SubmitPebbleState =
   | { status: "error"; errors: SubmitPebbleFormErrors }
   | { status: "success" };
 
-function getOptionalPhoto(formData: FormData): File | null {
-  const value = formData.get("photo");
-  if (!(value instanceof File)) {
-    return null;
-  }
-
-  // Browser file inputs include an empty File when left untouched.
-  if (!value.name || value.size === 0) {
-    return null;
-  }
-
-  return value;
+/**
+ * The photo itself was already uploaded straight to Blob by
+ * PebblePhotoField before this action ever ran — this reads the
+ * resulting raw URL, not a File. See pebble-photos.ts's module
+ * comment for why (Vercel Functions cap Server Action request bodies
+ * at 4.5 MB, well under the 8 MB photo limit).
+ */
+function getOptionalRawPhotoUrl(formData: FormData): string | null {
+  const value = formData.get("rawPhotoUrl");
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 export async function submitPebbleAction(
@@ -79,15 +73,10 @@ export async function submitPebbleAction(
 
   let photoUrl: string | undefined;
   if (featureFlags.pebblePhotos) {
-    const photo = getOptionalPhoto(formData);
-    if (photo) {
-      const validation = validatePebblePhoto(photo);
-      if (validation.error) {
-        return { status: "error", errors: { photo: validation.error } };
-      }
-
+    const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
+    if (rawPhotoUrl) {
       try {
-        photoUrl = await uploadPebblePhoto(photo);
+        photoUrl = await processUploadedPebblePhoto(rawPhotoUrl);
       } catch (error) {
         if (error instanceof PhotoValidationError) {
           return { status: "error", errors: { photo: error.message } };

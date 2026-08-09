@@ -15,8 +15,7 @@ import {
 import {
   PhotoValidationError,
   deletePebblePhoto,
-  uploadPebblePhoto,
-  validatePebblePhoto,
+  processUploadedPebblePhoto,
 } from "@/lib/pebble-photos";
 import {
   validateSubmitPebbleInput,
@@ -36,17 +35,9 @@ function assertAdminFeatureEnabled() {
   }
 }
 
-function getOptionalPhoto(formData: FormData): File | null {
-  const value = formData.get("photo");
-  if (!(value instanceof File)) {
-    return null;
-  }
-
-  if (!value.name || value.size === 0) {
-    return null;
-  }
-
-  return value;
+function getOptionalRawPhotoUrl(formData: FormData): string | null {
+  const value = formData.get("rawPhotoUrl");
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 export async function approveAccessRequestAction(requestId: string, _formData: FormData) {
@@ -119,15 +110,10 @@ export async function addPebbleAction(
 
   let photoUrl: string | undefined;
   if (featureFlags.pebblePhotos) {
-    const photo = getOptionalPhoto(formData);
-    if (photo) {
-      const validation = validatePebblePhoto(photo);
-      if (validation.error) {
-        return { status: "error", errors: { photo: validation.error } };
-      }
-
+    const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
+    if (rawPhotoUrl) {
       try {
-        photoUrl = await uploadPebblePhoto(photo);
+        photoUrl = await processUploadedPebblePhoto(rawPhotoUrl);
       } catch (error) {
         if (error instanceof PhotoValidationError) {
           return { status: "error", errors: { photo: error.message } };

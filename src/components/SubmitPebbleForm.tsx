@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { submitPebbleAction, type SubmitPebbleState } from "@/app/submit/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
+import { PebblePhotoField } from "@/components/PebblePhotoField";
 import { Button } from "@/components/Button";
 
 const initialState: SubmitPebbleState = { status: "idle" };
@@ -15,6 +16,7 @@ export function SubmitPebbleForm() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   if (state.status === "success") {
     return (
@@ -109,18 +111,14 @@ export function SubmitPebbleForm() {
       </label>
 
       {pebblePhotosEnabled && (
-        <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
-          Photo (optional)
-          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="input" />
-          {errors.photo && (
-            <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
-              {errors.photo}
-            </span>
-          )}
-        </label>
+        <PebblePhotoField
+          context="submit"
+          error={errors.photo}
+          onUploadingChange={setPhotoUploading}
+        />
       )}
 
-      <Button type="submit" disabled={isPending} className="self-start">
+      <Button type="submit" disabled={isPending || photoUploading} className="self-start">
         {isPending ? "Submitting…" : "Submit pebble"}
       </Button>
     </form>

@@ -12,8 +12,7 @@ const removePebblePhoto = vi.fn();
 const verifyPebble = vi.fn();
 const movePebble = vi.fn();
 const deletePebblePhoto = vi.fn();
-const uploadPebblePhoto = vi.fn();
-const validatePebblePhoto = vi.fn();
+const processUploadedPebblePhoto = vi.fn();
 const revalidatePath = vi.fn();
 class FakePhotoValidationError extends Error {}
 
@@ -33,8 +32,7 @@ vi.mock("@/lib/pebbles", () => ({
 }));
 vi.mock("@/lib/pebble-photos", () => ({
   deletePebblePhoto,
-  uploadPebblePhoto,
-  validatePebblePhoto,
+  processUploadedPebblePhoto,
   PhotoValidationError: FakePhotoValidationError,
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -79,10 +77,8 @@ beforeEach(() => {
   movePebble.mockReset();
   deletePebblePhoto.mockReset();
   deletePebblePhoto.mockResolvedValue(undefined);
-  uploadPebblePhoto.mockReset();
-  uploadPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
-  validatePebblePhoto.mockReset();
-  validatePebblePhoto.mockReturnValue({});
+  processUploadedPebblePhoto.mockReset();
+  processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
   revalidatePath.mockReset();
   vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
@@ -238,21 +234,21 @@ describe("addPebbleAction", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/");
   });
 
-  it("uploads a provided photo and stores its URL", async () => {
+  it("processes a provided raw photo upload and stores its URL", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
     vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     vi.resetModules();
     const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
 
-    const data = formData(VALID_PEBBLE_FIELDS);
-    const file = new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" });
-    data.set("photo", file);
+    const data = formData({
+      ...VALID_PEBBLE_FIELDS,
+      rawPhotoUrl: "https://blob.example/raw/tim.jpg",
+    });
 
     const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
 
     expect(result).toEqual({ status: "success" });
-    expect(validatePebblePhoto).toHaveBeenCalledWith(file);
-    expect(uploadPebblePhoto).toHaveBeenCalledWith(file);
+    expect(processUploadedPebblePhoto).toHaveBeenCalledWith("https://blob.example/raw/tim.jpg");
     expect(createPebbleByAdmin).toHaveBeenCalledWith(
       {
         latitude: 48.8584,
@@ -264,37 +260,32 @@ describe("addPebbleAction", () => {
     );
   });
 
-  it("returns a photo error when photo validation fails", async () => {
+  it("ignores an empty rawPhotoUrl (no photo selected)", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
     vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     vi.resetModules();
-    validatePebblePhoto.mockReturnValue({ error: "Photo must be 8 MB or smaller." });
     const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
 
-    const data = formData(VALID_PEBBLE_FIELDS);
-    data.set("photo", new File([new Uint8Array([1])], "tim.jpg", { type: "image/jpeg" }));
+    const result = await addPebbleActionWithPhotos({ status: "idle" }, formData(VALID_PEBBLE_FIELDS));
 
-    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
-
-    expect(result).toEqual({
-      status: "error",
-      errors: { photo: "Photo must be 8 MB or smaller." },
-    });
-    expect(uploadPebblePhoto).not.toHaveBeenCalled();
-    expect(createPebbleByAdmin).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "success" });
+    expect(processUploadedPebblePhoto).not.toHaveBeenCalled();
+    expect(createPebbleByAdmin).toHaveBeenCalledWith(expect.anything(), undefined);
   });
 
-  it("returns a photo error when upload throws PhotoValidationError", async () => {
+  it("returns a photo error when processing throws PhotoValidationError", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
     vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     vi.resetModules();
-    uploadPebblePhoto.mockRejectedValue(
+    processUploadedPebblePhoto.mockRejectedValue(
       new FakePhotoValidationError("We couldn't process that image. Try a different file."),
     );
     const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
 
-    const data = formData(VALID_PEBBLE_FIELDS);
-    data.set("photo", new File([new Uint8Array([1, 2, 3])], "tim.jpg", { type: "image/jpeg" }));
+    const data = formData({
+      ...VALID_PEBBLE_FIELDS,
+      rawPhotoUrl: "https://blob.example/raw/tim.jpg",
+    });
 
     const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
 

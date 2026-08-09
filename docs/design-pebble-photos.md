@@ -132,6 +132,101 @@ trusted-because-the-UI-only-shows-it-here.
   service (Google Maps/Geocoding) got this level of verification; Blob
   is the same category of thing and gets the same treatment.
 
+## Amendment (2026-08-09): client-side direct upload
+
+**Status: implemented.** First real production testers hit a hard
+failure submitting a pebble with a photo attached — the form errored
+out and lost all entered data. Vercel's runtime logs showed:
+
+```
+Error: Body exceeded 1 MB limit.
+To configure the body size limit for Server Actions, see:
+https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodySizeLimit
+statusCode: 413
+```
+
+The original design above routed the photo `File` straight through
+the Server Action's `FormData` body. That works locally (`next dev`
+has no such cap) but not in production: **Vercel Functions hard-cap
+request bodies at 4.5 MB, and this is not configurable** — raising
+Next's own `serverActions.bodySizeLimit` doesn't help, since Vercel's
+platform-level limit sits below it regardless. Our own `MAX_UPLOAD_BYTES`
+(8 MB) was already inconsistent with that hard ceiling even before
+accounting for multipart overhead.
+
+### The fix
+
+Photo bytes now go straight from the browser to Vercel Blob, bypassing
+the Server Action (and therefore the Function body limit) entirely —
+Vercel's documented pattern for exactly this situation
+([Client Uploads with Vercel Blob](https://vercel.com/docs/vercel-blob/client-upload)).
+
+| Concern | Choice | Why |
+|---|---|---|
+| When the raw upload happens | As soon as the photo is selected (`PebblePhotoField`'s file `onChange`), not on form submit | Lets the rest of the form stay a normal `<form action={formAction}>` — the already-uploaded raw URL just rides along as a hidden field by the time Submit is clicked, instead of needing a custom async submit handler. Trade-off: an abandoned form (photo picked, never submitted) leaves an orphaned raw upload — tracked as its own admin cleanup entry in `docs/features.md`, paired with the "delete a pebble" admin feature rather than solved here. |
+| Who authorizes the raw upload | Two upload-token routes (`/api/pebble-photo/upload-token/submit`, `/api/pebble-photo/upload-token/admin`), each re-implementing the exact authorization the corresponding Server Action already applied (submit: `requireAllowedUser()` only while `FEATURE_AUTH_GATE` is on; admin: `requireAdmin()`, always) | Same "route protection policy" as everywhere else in this codebase — the upload itself is a real authorization boundary (anyone who can reach the token route can write to Blob), so it gets the identical policy as the action it feeds, not a looser one. Two routes rather than one shared, parameterized-by-client-input route, specifically so the client can never talk its way into the more permissive (public-when-gate-off) submit policy while claiming to be the admin flow. |
+| Size/type enforcement | Vercel Blob's own `allowedContentTypes`/`maximumSizeInBytes` client-token constraints (server-authoritative, enforced during the direct browser→Blob transfer) | Replaces the old `validatePebblePhoto()` server check, which no longer has anything to check — the `File` never reaches our server code at all now. Constants moved to a new client-safe module (`pebble-photo-constraints.ts`, no `sharp`/`@vercel/blob` imports) so the same 8 MB/type limits also drive instant client-side feedback on selection, before any network call. |
+| Raw upload access level | Always `private` | The raw upload is a transient intermediate, never shown to end users and always fetched server-side by our own trusted code — no reason it needs to work against a public-only store, so it skips the public→private fallback dance the *final* image's `put()` still does. |
+| Processing | Unchanged: `sharp` resize to 2000px/webp@80 quality, `put()` with public→private fallback | The bytes just come from fetching the raw Blob URL server-side now (`get()`, same public→private fallback pattern already proven in `/api/pebble-photo/route.ts`) instead of `File.arrayBuffer()`. Every sizing/format/storage assumption in `docs/finops-report.md` still holds — this only changes how bytes get from the browser to the code that was always going to resize them. |
+| Raw upload cleanup | Best-effort `del()` of the raw blob immediately after the processed version uploads successfully | Keeps the common case (photo selected, form submitted) from leaving any trace of the raw intermediate. Doesn't handle the abandoned-form case — see the admin cleanup follow-up above. |
+
+### Updated module interface (`src/lib/pebble-photos.ts`)
+
+```ts
+// Fetches the raw upload by URL, resizes/re-encodes via sharp, uploads
+// the processed result, and best-effort deletes the raw intermediate.
+// Throws PhotoValidationError if the raw upload can't be found or
+// sharp can't process it.
+export async function processUploadedPebblePhoto(rawUrl: string): Promise<string>;
+
+export async function deletePebblePhoto(url: string): Promise<void>; // unchanged
+```
+
+`validatePebblePhoto(file: File)` and `uploadPebblePhoto(file: File)`
+are gone — no code path ever holds a `File` server-side anymore.
+Equivalent pure validation now lives in `src/lib/pebble-photo-constraints.ts`
+(`validatePhotoFile`), used client-side by `PebblePhotoField`.
+
+New client-side pieces:
+
+* `src/lib/pebble-photo-client-upload.ts` — thin wrapper around
+  `@vercel/blob/client`'s `upload()`, picks the right token route by
+  context (`"submit" | "admin"`).
+* `src/components/PebblePhotoField.tsx` — shared by `SubmitPebbleForm`
+  and `AdminAddPebbleForm` (previously each had its own inline
+  `<input type="file">`): validates on selection, uploads immediately,
+  shows upload/error state, and renders the hidden `rawPhotoUrl` field
+  the action reads.
+* `src/lib/pebble-photo-upload-token.ts` — shared `handleUpload()`
+  plumbing behind both token routes; each route supplies its own
+  `authorize()` callback.
+
+### Testing approach (amendment)
+
+* `validatePhotoFile()` — pure function, unit-tested directly (moved
+  from `pebble-photos.test.ts`, same cases).
+* `processUploadedPebblePhoto()` — unit-tested with `get`/`put`/`del`
+  and `sharp` mocked: fetch fallback (public→private), processing
+  failure, upload fallback (public→private, unchanged from before),
+  and that a raw-delete failure doesn't fail the whole call.
+* `pebble-photo-upload-token.ts` and both route handlers — unit-tested
+  with `@vercel/blob/client`'s `handleUpload` mocked to invoke the
+  supplied `onBeforeGenerateToken`, asserting each route's
+  authorization policy matches its Server Action exactly (including
+  the 403s when the relevant feature flags are off).
+* `PebblePhotoField` — component-tested directly (selection→upload→
+  hidden-field-population happy path, client-side validation
+  rejection, upload failure), plus one integration assertion in each
+  of `SubmitPebbleForm`/`AdminAddPebbleForm`'s own tests that Submit
+  stays disabled while a photo upload is in flight.
+* `submitPebbleAction`/`addPebbleAction` — same shape as before, just
+  asserting against `processUploadedPebblePhoto(rawPhotoUrl)` instead
+  of `uploadPebblePhoto(file)`.
+* `e2e/pebble-photo-upload.spec.ts` (local-only, real Blob) — updated
+  to wait for the "Uploading photo…" indicator to clear before
+  clicking Submit, since the upload is no longer synchronous with
+  submission.
+
 ## Deferred (tracked separately, not part of this change)
 
 * **Replacing an existing photo** (upload a new one over an old one,
