@@ -347,6 +347,14 @@ Design brief:
 Harden production cutover for the custom domain and auth flow so launch
 issues are caught by checklist rather than in live traffic.
 
+Note: the `www.trackingtim.com` vs `trackingtim.com` cookie split is
+fixed — `src/proxy.ts` now redirects `www` to the apex before `auth()`
+runs, since Auth.js's session cookie is host-only. Found in production:
+an admin (whitelisted, not the site owner) got 400 "Sign in required to
+submit a pebble." from photo uploads on `www` while another admin on
+the apex the whole time saw no issue. Remaining acceptance criteria
+below are still open.
+
 Acceptance criteria:
 * DNS/SSL ownership and verification steps are documented for
   `trackingtim.com` and `www.trackingtim.com` (if used).
