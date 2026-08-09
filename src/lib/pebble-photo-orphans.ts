@@ -1,21 +1,15 @@
 import { del, list } from "@vercel/blob";
-
-/**
- * Same prefix PebblePhotoField's client uploads land under (see
- * pebble-photos.ts's client-upload amendment). A raw upload only ever
- * gets deleted by processUploadedPebblePhoto() once the form it was
- * attached to is actually submitted — an abandoned form (tab closed,
- * different photo picked instead) leaves one behind here permanently
- * otherwise.
- */
-const RAW_UPLOAD_PREFIX = "pebbles-raw/";
+import { RAW_UPLOAD_PATH_PREFIX } from "@/lib/pebble-photo-constraints";
 
 /**
  * Don't list uploads younger than this as orphans — a submission still
  * in progress (photo picked, still filling in the rest of the form)
  * looks identical to an abandoned one until enough time has passed.
+ * An hour is generous headroom over how long filling in the rest of a
+ * five-field form actually takes; the original 24h choice here just
+ * made the whole feature useless for a while after every real upload.
  */
-const MIN_ORPHAN_AGE_MS = 24 * 60 * 60 * 1000;
+const MIN_ORPHAN_AGE_MS = 60 * 60 * 1000;
 
 export type OrphanedPhotoUpload = {
   url: string;
@@ -31,7 +25,7 @@ export type OrphanedPhotoUpload = {
  */
 export async function listOrphanedPhotoUploads(): Promise<OrphanedPhotoUpload[]> {
   const cutoff = Date.now() - MIN_ORPHAN_AGE_MS;
-  const { blobs } = await list({ prefix: RAW_UPLOAD_PREFIX });
+  const { blobs } = await list({ prefix: RAW_UPLOAD_PATH_PREFIX });
 
   return blobs
     .filter((blob) => blob.uploadedAt.getTime() < cutoff)

@@ -32,7 +32,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   }
 
   const { tab } = await searchParams;
-  const activeTab: AdminTab = tab === "pebbles" ? "pebbles" : "access";
+  const activeTab: AdminTab =
+    tab === "pebbles"
+      ? "pebbles"
+      : tab === "orphans" && featureFlags.pebblePhotos
+        ? "orphans"
+        : "access";
 
   const [allowedUsers, pendingRequests, pebbles, orphanedUploads] = await Promise.all([
     listAllowedUsers(),
@@ -44,17 +49,21 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   return (
     <PageContainer maxWidth="4xl">
       <h1 className="heading-1">Admin</h1>
-      <AdminTabs active={activeTab} />
+      <AdminTabs active={activeTab} showOrphans={featureFlags.pebblePhotos} />
       {activeTab === "access" ? (
         <div className="flex flex-col gap-8">
           <h2 className="heading-2">Manage access</h2>
           <ManageUsers allowedUsers={allowedUsers} pendingRequests={pendingRequests} />
         </div>
-      ) : (
+      ) : activeTab === "pebbles" ? (
         <div className="flex flex-col gap-8">
           <h2 className="heading-2">Manage pebbles</h2>
           <AdminPebbles pebbles={pebbles} />
-          {featureFlags.pebblePhotos && <ManageOrphanedPhotos orphans={orphanedUploads} />}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-8">
+          <h2 className="heading-2">Orphaned photo uploads</h2>
+          <ManageOrphanedPhotos orphans={orphanedUploads} />
         </div>
       )}
     </PageContainer>

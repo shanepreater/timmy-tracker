@@ -266,7 +266,7 @@ these out. See [docs/design-pebble-photos.md](design-pebble-photos.md)'s
 
 Acceptance criteria:
 * [x] Admin can list raw uploads under `pebbles-raw/` that are older
-  than some threshold (24h — a submission in progress shouldn't be
+  than some threshold (1h — a submission in progress shouldn't be
   swept mid-fill) via Blob's `list()` API.
 * [x] Admin can delete individual orphans or bulk-clear all of them.
 * [x] Action is `requireAdmin()`-gated, same as every other admin

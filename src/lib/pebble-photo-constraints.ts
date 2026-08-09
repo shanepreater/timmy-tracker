@@ -8,6 +8,16 @@
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
+/**
+ * Raw client uploads (pebble-photo-client-upload.ts) live under this
+ * prefix — a single source of truth so the uploader and the orphan
+ * lister (pebble-photo-orphans.ts) can't drift apart. They did once:
+ * the uploader never actually applied a prefix, silently landing raw
+ * files at the store root, where the orphan lister's prefix filter
+ * could never find them.
+ */
+export const RAW_UPLOAD_PATH_PREFIX = "pebbles-raw/";
+
 /** Pure — no I/O. Returns an error message, or null if the file is fine. */
 export function validatePhotoFile(file: File): string | null {
   if (file.size === 0) {

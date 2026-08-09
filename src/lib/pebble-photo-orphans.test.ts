@@ -32,11 +32,11 @@ afterEach(() => {
 });
 
 describe("listOrphanedPhotoUploads", () => {
-  it("lists under the pebbles-raw/ prefix and excludes uploads younger than 24h", async () => {
+  it("lists under the pebbles-raw/ prefix and excludes uploads younger than 1h", async () => {
     list.mockResolvedValue({
       blobs: [
-        blob({ pathname: "pebbles-raw/old.jpg", uploadedAt: new Date("2026-08-08T00:00:00Z") }),
-        blob({ pathname: "pebbles-raw/recent.jpg", uploadedAt: new Date("2026-08-09T23:00:00Z") }),
+        blob({ pathname: "pebbles-raw/old.jpg", uploadedAt: new Date("2026-08-09T22:00:00Z") }),
+        blob({ pathname: "pebbles-raw/recent.jpg", uploadedAt: new Date("2026-08-09T23:30:00Z") }),
       ],
       hasMore: false,
     });

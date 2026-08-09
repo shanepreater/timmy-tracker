@@ -19,16 +19,16 @@ function formatSize(bytes: number): string {
  * selected rather than on submit (docs/design-pebble-photos.md's
  * client-upload amendment) — an abandoned form leaves the raw upload
  * behind with nothing to ever process or delete it. Only uploads older
- * than 24h show up here (see pebble-photo-orphans.ts), so a submission
+ * than an hour show up here (see pebble-photo-orphans.ts), so a submission
  * still in progress never gets swept mid-fill.
  */
 export function ManageOrphanedPhotos({ orphans }: ManageOrphanedPhotosProps) {
   return (
-    <section className="flex flex-col gap-4">
-      <h3 className="heading-3">Orphaned photo uploads</h3>
+    <div className="flex flex-col gap-4">
       <p className="text-sm text-stone-600 dark:text-stone-400">
-        Photos uploaded to a submit/add-pebble form that was never completed. Safe to delete —
-        none of these are attached to any pebble.
+        Photos uploaded to a submit/add-pebble form that was never completed, at least an hour
+        ago (a form still being filled in doesn&rsquo;t show here). Safe to delete — none of these
+        are attached to any pebble.
       </p>
       {orphans.length === 0 ? (
         <p className="text-stone-600 dark:text-stone-400">No orphaned uploads.</p>
@@ -63,6 +63,6 @@ export function ManageOrphanedPhotos({ orphans }: ManageOrphanedPhotosProps) {
           </ConfirmForm>
         </>
       )}
-    </section>
+    </div>
   );
 }

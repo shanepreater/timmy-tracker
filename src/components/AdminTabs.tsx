@@ -1,27 +1,37 @@
 import Link from "next/link";
 
-export type AdminTab = "access" | "pebbles";
+export type AdminTab = "access" | "pebbles" | "orphans";
 
 type AdminTabsProps = {
   active: AdminTab;
+  /** Orphaned uploads only exist when NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS is on. */
+  showOrphans?: boolean;
 };
 
-const TABS: { key: AdminTab; label: string; href: string }[] = [
+const BASE_TABS: { key: AdminTab; label: string; href: string }[] = [
   { key: "access", label: "Manage access", href: "/admin?tab=access" },
   { key: "pebbles", label: "Manage pebbles", href: "/admin?tab=pebbles" },
 ];
 
+const ORPHANS_TAB = {
+  key: "orphans" as const,
+  label: "Orphaned photos",
+  href: "/admin?tab=orphans",
+};
+
 /**
  * Plain links, not a JS-driven ARIA tabs widget — each "tab" is a real
- * navigable URL (?tab=access|pebbles), so the correct accessible
- * pattern is a nav landmark with aria-current, not role="tablist"/"tab"
- * (which implies keyboard arrow-key handling this doesn't implement).
- * See docs/design-ui-redesign.md.
+ * navigable URL (?tab=access|pebbles|orphans), so the correct
+ * accessible pattern is a nav landmark with aria-current, not
+ * role="tablist"/"tab" (which implies keyboard arrow-key handling this
+ * doesn't implement). See docs/design-ui-redesign.md.
  */
-export function AdminTabs({ active }: AdminTabsProps) {
+export function AdminTabs({ active, showOrphans = false }: AdminTabsProps) {
+  const tabs = showOrphans ? [...BASE_TABS, ORPHANS_TAB] : BASE_TABS;
+
   return (
     <nav aria-label="Admin sections" className="flex gap-1 border-b border-stone-200 dark:border-stone-700">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = tab.key === active;
         return (
           <Link

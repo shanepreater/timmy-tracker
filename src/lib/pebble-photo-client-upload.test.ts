@@ -15,7 +15,12 @@ describe("uploadRawPebblePhoto", () => {
 
     const url = await uploadRawPebblePhoto(file, "submit");
 
-    expect(upload).toHaveBeenCalledWith("tim.jpg", file, {
+    // Must land under pebbles-raw/ — that's the exact prefix the orphan
+    // lister (pebble-photo-orphans.ts) filters on. This assertion is
+    // the regression test for a real bug: the upload never applied any
+    // prefix, so every raw upload landed at the store root and the
+    // orphan cleanup UI could never find any of them.
+    expect(upload).toHaveBeenCalledWith("pebbles-raw/tim.jpg", file, {
       access: "private",
       handleUploadUrl: "/api/pebble-photo/upload-token/submit",
     });
@@ -32,7 +37,7 @@ describe("uploadRawPebblePhoto", () => {
     await uploadRawPebblePhoto(file, "admin");
 
     expect(upload).toHaveBeenCalledWith(
-      "tim.jpg",
+      "pebbles-raw/tim.jpg",
       file,
       expect.objectContaining({ handleUploadUrl: "/api/pebble-photo/upload-token/admin" }),
     );
