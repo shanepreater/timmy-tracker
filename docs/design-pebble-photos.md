@@ -227,6 +227,32 @@ New client-side pieces:
   clicking Submit, since the upload is no longer synchronous with
   submission.
 
+## Amendment (2026-08-10): orphaned raw-upload cleanup
+
+**Status: implemented.** The direct-client-upload amendment above
+explicitly traded a form-submission race for a new problem, flagged at
+the time in `docs/features.md`: uploading the raw photo on *selection*
+rather than on *submit* means an abandoned form (tab closed, a
+different photo picked instead) leaves the raw upload in Blob
+permanently — nothing else in the app ever processes or deletes it.
+This closes that out with an admin-facing cleanup view.
+
+| Concern | Choice | Why |
+|---|---|---|
+| Finding orphans | `list({ prefix: "pebbles-raw/" })`, filtered to uploads older than 24h | The `pebbles-raw/` prefix already cleanly separates raw uploads from processed photos (`pebbles/`). The 24h floor exists so a submission genuinely still in progress — photo picked, admin still typing the rest of the form — never gets listed as though it were abandoned. |
+| Pagination | None — single `list()` call (default limit 1000) | This project's scale (150 pebbles total, `README.md`'s "Assumptions") means orphan counts will never approach four figures; added complexity with no realistic payoff. |
+| Deletion | Delete one, or delete all listed orphans, both admin-only and confirmed client-side (`ConfirmForm`, shared with the "Delete a pebble" amendment in `docs/design-admin-pebbles.md`) | Matches "delete a pebble"'s reasoning exactly — this is also an irreversible Blob delete. |
+| Where it lives | New "Orphaned photo uploads" section on the existing "Manage pebbles" admin tab, not a new tab | A secondary/occasional cleanup task, not a primary workflow — doesn't warrant its own `AdminTabs` entry. |
+
+New module: `src/lib/pebble-photo-orphans.ts` —
+`listOrphanedPhotoUploads()`, `deleteOrphanedPhotoUpload(url)`,
+`deleteAllOrphanedPhotoUploads()`. New actions in
+`src/app/admin/actions.ts`: `deleteOrphanedPhotoUploadAction`,
+`deleteAllOrphanedPhotoUploadsAction` — both
+`assertAdminFeatureEnabled()` + `requireAdmin()` +
+`assertPebblePhotosEnabled()` (a new shared helper; `removePebblePhotoAction`
+was refactored to use it too, replacing its identical inline check).
+
 ## Deferred (tracked separately, not part of this change)
 
 * **Replacing an existing photo** (upload a new one over an old one,
