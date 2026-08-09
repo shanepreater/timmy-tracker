@@ -16,6 +16,10 @@ const deletePebblePhoto = vi.fn();
 const processUploadedPebblePhoto = vi.fn();
 const deleteOrphanedPhotoUpload = vi.fn();
 const deleteAllOrphanedPhotoUploads = vi.fn();
+const getOrphanMinAgeMinutes = vi.fn();
+const setOrphanMinAgeMinutes = vi.fn();
+const getDynamicFeatureFlags = vi.fn();
+const setDynamicFeatureFlag = vi.fn();
 const revalidatePath = vi.fn();
 class FakePhotoValidationError extends Error {}
 
@@ -42,6 +46,12 @@ vi.mock("@/lib/pebble-photos", () => ({
 vi.mock("@/lib/pebble-photo-orphans", () => ({
   deleteOrphanedPhotoUpload,
   deleteAllOrphanedPhotoUploads,
+  getOrphanMinAgeMinutes,
+  setOrphanMinAgeMinutes,
+}));
+vi.mock("@/lib/dynamic-feature-flags", () => ({
+  getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
+  setDynamicFeatureFlag: (...args: unknown[]) => setDynamicFeatureFlag(...args),
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -63,6 +73,8 @@ const {
   deletePebbleAction,
   deleteOrphanedPhotoUploadAction,
   deleteAllOrphanedPhotoUploadsAction,
+  updateOrphanMinAgeMinutesAction,
+  updateFeatureFlagAction,
 } = await import("./actions");
 
 const VALID_PEBBLE_FIELDS = {
@@ -71,6 +83,9 @@ const VALID_PEBBLE_FIELDS = {
   depositedBy: "Sarah",
   depositedAt: "2026-03-01",
 };
+
+const PHOTOS_OFF = { map: false, submitPebble: false, pebblePhotos: false };
+const PHOTOS_ON = { map: false, submitPebble: false, pebblePhotos: true };
 
 beforeEach(() => {
   requireAdmin.mockReset();
@@ -96,8 +111,13 @@ beforeEach(() => {
   deleteOrphanedPhotoUpload.mockResolvedValue(undefined);
   deleteAllOrphanedPhotoUploads.mockReset();
   deleteAllOrphanedPhotoUploads.mockResolvedValue(0);
+  getOrphanMinAgeMinutes.mockReset();
+  getOrphanMinAgeMinutes.mockResolvedValue(15);
+  setOrphanMinAgeMinutes.mockReset();
+  getDynamicFeatureFlags.mockReset();
+  getDynamicFeatureFlags.mockResolvedValue(PHOTOS_OFF);
+  setDynamicFeatureFlag.mockReset();
   revalidatePath.mockReset();
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
 
 function formData(values: Record<string, string> = {}) {
@@ -159,6 +179,12 @@ describe("admin actions require FEATURE_ADMIN", () => {
     await expect(disabled.deleteAllOrphanedPhotoUploadsAction(formData())).rejects.toThrow(
       "isn't enabled",
     );
+    await expect(disabled.updateOrphanMinAgeMinutesAction(formData())).rejects.toThrow(
+      "isn't enabled",
+    );
+    await expect(
+      disabled.updateFeatureFlagAction("map", false, formData()),
+    ).rejects.toThrow("isn't enabled");
 
     const addPebbleResult = await disabled.addPebbleAction(
       { status: "idle" },
@@ -262,16 +288,14 @@ describe("addPebbleAction", () => {
 
   it("processes a provided raw photo upload and stores its URL", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
 
     const data = formData({
       ...VALID_PEBBLE_FIELDS,
       rawPhotoUrl: "https://blob.example/raw/tim.jpg",
     });
 
-    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
+    const result = await addPebbleAction({ status: "idle" }, data);
 
     expect(result).toEqual({ status: "success" });
     expect(processUploadedPebblePhoto).toHaveBeenCalledWith("https://blob.example/raw/tim.jpg");
@@ -288,11 +312,9 @@ describe("addPebbleAction", () => {
 
   it("ignores an empty rawPhotoUrl (no photo selected)", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
 
-    const result = await addPebbleActionWithPhotos({ status: "idle" }, formData(VALID_PEBBLE_FIELDS));
+    const result = await addPebbleAction({ status: "idle" }, formData(VALID_PEBBLE_FIELDS));
 
     expect(result).toEqual({ status: "success" });
     expect(processUploadedPebblePhoto).not.toHaveBeenCalled();
@@ -301,19 +323,17 @@ describe("addPebbleAction", () => {
 
   it("returns a photo error when processing throws PhotoValidationError", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
     processUploadedPebblePhoto.mockRejectedValue(
       new FakePhotoValidationError("We couldn't process that image. Try a different file."),
     );
-    const { addPebbleAction: addPebbleActionWithPhotos } = await import("./actions");
 
     const data = formData({
       ...VALID_PEBBLE_FIELDS,
       rawPhotoUrl: "https://blob.example/raw/tim.jpg",
     });
 
-    const result = await addPebbleActionWithPhotos({ status: "idle" }, data);
+    const result = await addPebbleAction({ status: "idle" }, data);
 
     expect(result).toEqual({
       status: "error",
@@ -394,12 +414,9 @@ describe("removePebblePhotoAction", () => {
 
   it("no-ops when the pebble has no photo", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("FEATURE_ADMIN", "true");
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { removePebblePhotoAction: removeWithPhotos } = await import("./actions");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
 
-    await removeWithPhotos("p1", formData());
+    await removePebblePhotoAction("p1", formData());
 
     expect(getPebblePhotoUrl).toHaveBeenCalledWith("p1");
     expect(deletePebblePhoto).not.toHaveBeenCalled();
@@ -408,13 +425,10 @@ describe("removePebblePhotoAction", () => {
 
   it("deletes blob then clears DB photoUrl and revalidates", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
     getPebblePhotoUrl.mockResolvedValue("https://blob.example/photo.webp");
-    vi.stubEnv("FEATURE_ADMIN", "true");
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { removePebblePhotoAction: removeWithPhotos } = await import("./actions");
 
-    await removeWithPhotos("p1", formData());
+    await removePebblePhotoAction("p1", formData());
 
     expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/photo.webp");
     expect(removePebblePhoto).toHaveBeenCalledWith("p1");
@@ -477,11 +491,9 @@ describe("deleteOrphanedPhotoUploadAction", () => {
 
   it("deletes the given upload and revalidates", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { deleteOrphanedPhotoUploadAction: deleteWithPhotos } = await import("./actions");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
 
-    await deleteWithPhotos("https://blob.example/raw.jpg", formData());
+    await deleteOrphanedPhotoUploadAction("https://blob.example/raw.jpg", formData());
 
     expect(deleteOrphanedPhotoUpload).toHaveBeenCalledWith("https://blob.example/raw.jpg");
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
@@ -506,17 +518,88 @@ describe("deleteAllOrphanedPhotoUploadsAction", () => {
     );
   });
 
-  it("deletes every orphan and revalidates", async () => {
+  it("deletes every orphan at the current threshold and revalidates", async () => {
     requireAdmin.mockResolvedValue({ email: "admin@example.com" });
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-    vi.resetModules();
-    const { deleteAllOrphanedPhotoUploadsAction: deleteAllWithPhotos } = await import(
-      "./actions"
-    );
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getOrphanMinAgeMinutes.mockResolvedValue(30);
 
-    await deleteAllWithPhotos(formData());
+    await deleteAllOrphanedPhotoUploadsAction(formData());
 
-    expect(deleteAllOrphanedPhotoUploads).toHaveBeenCalledTimes(1);
+    expect(deleteAllOrphanedPhotoUploads).toHaveBeenCalledWith(30);
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+});
+
+describe("updateOrphanMinAgeMinutesAction", () => {
+  it("rejects when requireAdmin throws", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(
+      updateOrphanMinAgeMinutesAction(formData({ minAgeMinutes: "30" })),
+    ).rejects.toThrow("Admin access required.");
+    expect(setOrphanMinAgeMinutes).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(
+      updateOrphanMinAgeMinutesAction(formData({ minAgeMinutes: "30" })),
+    ).rejects.toThrow("Pebble photos aren't enabled.");
+  });
+
+  it("persists the new value and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+
+    await updateOrphanMinAgeMinutesAction(formData({ minAgeMinutes: "30" }));
+
+    expect(setOrphanMinAgeMinutes).toHaveBeenCalledWith(30);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+
+  it("rejects a negative or non-numeric value without persisting", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+
+    await expect(
+      updateOrphanMinAgeMinutesAction(formData({ minAgeMinutes: "-5" })),
+    ).rejects.toThrow("Enter a non-negative number of minutes.");
+    await expect(
+      updateOrphanMinAgeMinutesAction(formData({ minAgeMinutes: "abc" })),
+    ).rejects.toThrow("Enter a non-negative number of minutes.");
+    expect(setOrphanMinAgeMinutes).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateFeatureFlagAction", () => {
+  it("rejects when requireAdmin throws", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(updateFeatureFlagAction("map", false, formData())).rejects.toThrow(
+      "Admin access required.",
+    );
+    expect(setDynamicFeatureFlag).not.toHaveBeenCalled();
+  });
+
+  it("flips the given flag to the opposite of its current value", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await updateFeatureFlagAction("map", true, formData());
+
+    expect(setDynamicFeatureFlag).toHaveBeenCalledWith("map", false);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/submit");
+  });
+
+  it("rejects an unknown flag key", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(
+      // @ts-expect-error deliberately invalid key for the runtime check
+      updateFeatureFlagAction("notARealFlag", false, formData()),
+    ).rejects.toThrow("Unknown feature flag.");
+    expect(setDynamicFeatureFlag).not.toHaveBeenCalled();
   });
 });

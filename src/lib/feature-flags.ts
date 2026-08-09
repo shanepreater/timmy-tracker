@@ -1,15 +1,15 @@
 /**
- * Env-driven feature flags. Every new feature ships behind one of these,
- * defaulting to off, so the deployed site stays usable while a feature is
- * mid-flight. See docs/design.md for the rationale.
- *
- * Flags needed on the client must be prefixed NEXT_PUBLIC_ so Next.js
- * inlines them into the browser bundle at build time.
+ * Env-driven feature flags that stay env-driven. See docs/design.md's
+ * "Dynamic feature flags" amendment for why `map`, `submitPebble`, and
+ * `pebblePhotos` moved to DB-backed AppSetting rows instead
+ * (src/lib/dynamic-feature-flags.ts, fetched client-side via
+ * src/components/FeatureFlagsProvider.tsx) — the short version: both
+ * of these stay here because they're already server-only (nothing to
+ * hide by moving them), and `authGate` specifically *can't* move: it's
+ * read synchronously in proxy.ts, which runs on the Edge runtime and
+ * has no Prisma/Postgres access.
  */
 export const featureFlags = {
-  map: process.env.NEXT_PUBLIC_FEATURE_MAP === "true",
-  submitPebble: process.env.NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE === "true",
-  pebblePhotos: process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true",
   admin: process.env.FEATURE_ADMIN === "true",
   authGate: process.env.FEATURE_AUTH_GATE === "true",
 } as const;

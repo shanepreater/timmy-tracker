@@ -133,6 +133,23 @@ async function main() {
     update: { isAdmin: true },
     create: { email: BOOTSTRAP_ADMIN_EMAIL, isAdmin: true },
   });
+
+  // AppSetting rows. Only created (`skipDuplicates`, not upserted) so a
+  // re-seed never clobbers a value an admin has since changed via the
+  // Settings tab. FEATURE_MAP/SUBMIT_PEBBLE/PEBBLE_PHOTOS seed "true",
+  // not the usual off-by-default — these are already-promoted, already
+  // -live features being migrated off env vars, not new ones; seeding
+  // them off would silently regress the live site the moment this
+  // migration deploys, until someone remembered to flip them back on.
+  await prisma.appSetting.createMany({
+    data: [
+      { key: "ORPHANED_IMAGE_DELAY_MINS", value: "15" },
+      { key: "FEATURE_MAP", value: "true" },
+      { key: "FEATURE_SUBMIT_PEBBLE", value: "true" },
+      { key: "FEATURE_PEBBLE_PHOTOS", value: "true" },
+    ],
+    skipDuplicates: true,
+  });
 }
 
 main()

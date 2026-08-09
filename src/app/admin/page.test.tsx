@@ -6,6 +6,8 @@ const listAllowedUsers = vi.fn();
 const listPendingAccessRequests = vi.fn();
 const listAllPebbles = vi.fn();
 const listOrphanedPhotoUploads = vi.fn();
+const getOrphanMinAgeMinutes = vi.fn();
+const getDynamicFeatureFlags = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
@@ -17,7 +19,10 @@ vi.mock("@/lib/auth-guards", () => ({ getAllowedUser }));
 vi.mock("@/lib/allowed-users", () => ({ listAllowedUsers }));
 vi.mock("@/lib/access-requests", () => ({ listPendingAccessRequests }));
 vi.mock("@/lib/pebbles", () => ({ listAllPebbles }));
-vi.mock("@/lib/pebble-photo-orphans", () => ({ listOrphanedPhotoUploads }));
+vi.mock("@/lib/pebble-photo-orphans", () => ({ listOrphanedPhotoUploads, getOrphanMinAgeMinutes }));
+vi.mock("@/lib/dynamic-feature-flags", () => ({
+  getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
+}));
 vi.mock("next/navigation", () => ({ notFound, redirect }));
 vi.mock("@/components/ManageUsers", () => ({
   ManageUsers: () => <div data-testid="manage-users" />,
@@ -28,6 +33,15 @@ vi.mock("@/components/AdminPebbles", () => ({
 vi.mock("@/components/ManageOrphanedPhotos", () => ({
   ManageOrphanedPhotos: () => <div data-testid="manage-orphaned-photos" />,
 }));
+vi.mock("@/components/ManageFeatureFlags", () => ({
+  ManageFeatureFlags: () => <div data-testid="manage-feature-flags" />,
+}));
+vi.mock("@/components/ManageOrphanDelay", () => ({
+  ManageOrphanDelay: () => <div data-testid="manage-orphan-delay" />,
+}));
+
+const PHOTOS_OFF = { map: false, submitPebble: false, pebblePhotos: false };
+const PHOTOS_ON = { map: false, submitPebble: false, pebblePhotos: true };
 
 beforeEach(() => {
   getAllowedUser.mockReset();
@@ -36,10 +50,13 @@ beforeEach(() => {
   listAllPebbles.mockReset();
   listOrphanedPhotoUploads.mockReset();
   listOrphanedPhotoUploads.mockResolvedValue([]);
+  getOrphanMinAgeMinutes.mockReset();
+  getOrphanMinAgeMinutes.mockResolvedValue(15);
+  getDynamicFeatureFlags.mockReset();
+  getDynamicFeatureFlags.mockResolvedValue(PHOTOS_OFF);
   notFound.mockClear();
   redirect.mockClear();
   vi.stubEnv("FEATURE_ADMIN", "true");
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
 
 afterEach(() => {
@@ -120,7 +137,7 @@ describe("AdminPage", () => {
   });
 
   it("shows the orphaned-photos tab on its own, separate from Manage pebbles", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
     vi.resetModules();
     getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
     listAllowedUsers.mockResolvedValue([]);
@@ -136,10 +153,26 @@ describe("AdminPage", () => {
     expect(screen.getByTestId("manage-orphaned-photos")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-pebbles")).not.toBeInTheDocument();
     expect(listOrphanedPhotoUploads).toHaveBeenCalledTimes(1);
+    expect(listOrphanedPhotoUploads).toHaveBeenCalledWith(15);
+  });
+
+  it("shows the settings tab with feature flags and the orphan-delay control", async () => {
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams("settings") }));
+
+    expect(screen.getByRole("heading", { level: 2, name: /^settings$/i })).toBeInTheDocument();
+    expect(screen.getByTestId("manage-feature-flags")).toBeInTheDocument();
+    expect(screen.getByTestId("manage-orphan-delay")).toBeInTheDocument();
   });
 
   it("shows tab navigation to switch between sections", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
     vi.resetModules();
     getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
     listAllowedUsers.mockResolvedValue([]);
@@ -152,8 +185,10 @@ describe("AdminPage", () => {
     const accessTab = screen.getByRole("link", { name: /manage access/i });
     const pebblesTab = screen.getByRole("link", { name: /manage pebbles/i });
     const orphansTab = screen.getByRole("link", { name: /orphaned photos/i });
+    const settingsTab = screen.getByRole("link", { name: /^settings$/i });
     expect(accessTab).toHaveAttribute("aria-current", "page");
     expect(pebblesTab).toHaveAttribute("href", "/admin?tab=pebbles");
     expect(orphansTab).toHaveAttribute("href", "/admin?tab=orphans");
+    expect(settingsTab).toHaveAttribute("href", "/admin?tab=settings");
   });
 });

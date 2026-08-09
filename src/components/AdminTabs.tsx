@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-export type AdminTab = "access" | "pebbles" | "orphans";
+export type AdminTab = "access" | "pebbles" | "orphans" | "settings";
 
 type AdminTabsProps = {
   active: AdminTab;
-  /** Orphaned uploads only exist when NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS is on. */
+  /** Orphaned uploads only exist when the pebble-photos flag is on. */
   showOrphans?: boolean;
 };
 
@@ -19,15 +19,26 @@ const ORPHANS_TAB = {
   href: "/admin?tab=orphans",
 };
 
+// Always shown, unconditionally — this is where the flags controlling
+// every other tab's content get toggled, so it can't itself be hidden
+// behind one of them.
+const SETTINGS_TAB = {
+  key: "settings" as const,
+  label: "Settings",
+  href: "/admin?tab=settings",
+};
+
 /**
  * Plain links, not a JS-driven ARIA tabs widget — each "tab" is a real
- * navigable URL (?tab=access|pebbles|orphans), so the correct
+ * navigable URL (?tab=access|pebbles|orphans|settings), so the correct
  * accessible pattern is a nav landmark with aria-current, not
  * role="tablist"/"tab" (which implies keyboard arrow-key handling this
  * doesn't implement). See docs/design-ui-redesign.md.
  */
 export function AdminTabs({ active, showOrphans = false }: AdminTabsProps) {
-  const tabs = showOrphans ? [...BASE_TABS, ORPHANS_TAB] : BASE_TABS;
+  const tabs = showOrphans
+    ? [...BASE_TABS, ORPHANS_TAB, SETTINGS_TAB]
+    : [...BASE_TABS, SETTINGS_TAB];
 
   return (
     <nav aria-label="Admin sections" className="flex gap-1 border-b border-stone-200 dark:border-stone-700">

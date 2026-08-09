@@ -49,3 +49,15 @@ model AccessRequest {
   resolvedByEmail String?
   note            String?
 }
+
+/**
+ * Generic admin-adjustable key/value config, e.g.
+ * "orphanPhotoMinAgeMinutes" (see src/lib/pebble-photo-orphans.ts) —
+ * not a dedicated column/table per setting, since these are simple
+ * scalars an admin tweaks occasionally, not structured/queried data.
+ */
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

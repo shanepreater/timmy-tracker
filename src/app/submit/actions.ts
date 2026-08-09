@@ -1,6 +1,7 @@
 "use server";
 
 import { featureFlags } from "@/lib/feature-flags";
+import { getDynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 import { submitPebble } from "@/lib/pebbles";
 import { PhotoValidationError, processUploadedPebblePhoto } from "@/lib/pebble-photos";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
@@ -32,7 +33,8 @@ export async function submitPebbleAction(
 ): Promise<SubmitPebbleState> {
   // Defense in depth: the /submit page itself is gated behind this flag
   // too, but the action is a real endpoint regardless of what the UI shows.
-  if (!featureFlags.submitPebble) {
+  const dynamicFlags = await getDynamicFeatureFlags();
+  if (!dynamicFlags.submitPebble) {
     return {
       status: "error",
       errors: { depositedBy: "Submissions aren't open yet." },
@@ -72,7 +74,7 @@ export async function submitPebbleAction(
   }
 
   let photoUrl: string | undefined;
-  if (featureFlags.pebblePhotos) {
+  if (dynamicFlags.pebblePhotos) {
     const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
     if (rawPhotoUrl) {
       try {

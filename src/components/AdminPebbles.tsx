@@ -17,10 +17,10 @@ function deleteConfirmMessage(pebble: Pebble): string {
 
 type AdminPebblesProps = {
   pebbles: Pebble[];
+  pebblePhotosEnabled: boolean;
 };
 
-export function AdminPebbles({ pebbles }: AdminPebblesProps) {
-  const pebblePhotosEnabled = process.env.NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS === "true";
+export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps) {
   const pending = pebbles.filter((pebble) => pebble.status === "PENDING");
   const verified = pebbles.filter((pebble) => pebble.status === "VERIFIED");
 

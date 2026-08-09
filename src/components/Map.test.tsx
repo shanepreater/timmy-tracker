@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import { Map } from "@/components/Map";
+import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
+import type { DynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 
 vi.mock("@vis.gl/react-google-maps", () => ({
@@ -35,47 +38,46 @@ vi.mock("@vis.gl/react-google-maps", () => ({
   ),
 }));
 
+const OFF_FLAGS: DynamicFeatureFlags = { map: false, submitPebble: false, pebblePhotos: false };
+
+function renderMap(pebbles: VerifiedPebble[], flags: Partial<DynamicFeatureFlags> = {}) {
+  return render(
+    <FeatureFlagsProvider flags={{ ...OFF_FLAGS, ...flags }}>
+      <Map pebbles={pebbles} />
+    </FeatureFlagsProvider>,
+  );
+}
+
 beforeEach(() => {
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "");
-  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "");
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.resetModules();
 });
 
 describe("Map", () => {
-  it("shows a placeholder when the map feature flag is off", async () => {
-    vi.resetModules();
-    const { Map } = await import("./Map");
-    render(<Map pebbles={[]} />);
+  it("shows a placeholder when the map feature flag is off", () => {
+    renderMap([]);
 
     expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
   });
 
-  it("shows a placeholder when the flag is on but no API key is configured", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
+  it("shows a placeholder when the flag is on but no API key is configured", () => {
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "test-map-id");
-    vi.resetModules();
 
-    const { Map } = await import("./Map");
-    render(<Map pebbles={[]} />);
+    renderMap([], { map: true });
 
     expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
   });
 
-  it("shows a placeholder when the flag and API key are set but no Map ID is configured", async () => {
+  it("shows a placeholder when the flag and API key are set but no Map ID is configured", () => {
     // AdvancedMarkerElement (replacing the deprecated google.maps.Marker)
     // requires a Map ID to render at all — see docs/design.md's Maps row.
-    vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-key");
-    vi.resetModules();
 
-    const { Map } = await import("./Map");
-    render(<Map pebbles={[]} />);
+    renderMap([], { map: true });
 
     expect(screen.getByRole("status")).toHaveTextContent("Map coming soon.");
   });
@@ -91,15 +93,12 @@ describe("Map", () => {
     };
 
     beforeEach(() => {
-      vi.stubEnv("NEXT_PUBLIC_FEATURE_MAP", "true");
       vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-key");
       vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "test-map-id");
     });
 
-    it("shows depositedBy and the date when a marker is clicked", async () => {
-      vi.resetModules();
-      const { Map } = await import("./Map");
-      render(<Map pebbles={[pebble]} />);
+    it("shows depositedBy and the date when a marker is clicked", () => {
+      renderMap([pebble], { map: true });
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
@@ -110,10 +109,8 @@ describe("Map", () => {
       expect(dialog).toHaveTextContent(formatPebbleDate(pebble.depositedAt));
     });
 
-    it("closes the info window when its close control is clicked", async () => {
-      vi.resetModules();
-      const { Map } = await import("./Map");
-      render(<Map pebbles={[pebble]} />);
+    it("closes the info window when its close control is clicked", () => {
+      renderMap([pebble], { map: true });
 
       fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -123,10 +120,10 @@ describe("Map", () => {
     });
 
     it("renders a pebble photo in the info window when enabled", async () => {
-      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-      vi.resetModules();
-      const { Map } = await import("./Map");
-      render(<Map pebbles={[{ ...pebble, photoUrl: "https://blob.example/photo.webp" }]} />);
+      renderMap([{ ...pebble, photoUrl: "https://blob.example/photo.webp" }], {
+        map: true,
+        pebblePhotos: true,
+      });
 
       fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
 
@@ -134,10 +131,10 @@ describe("Map", () => {
     });
 
     it("renders a thumbnail marker when a photo is present and enabled", async () => {
-      vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
-      vi.resetModules();
-      const { Map } = await import("./Map");
-      render(<Map pebbles={[{ ...pebble, photoUrl: "https://blob.example/photo.webp" }]} />);
+      renderMap([{ ...pebble, photoUrl: "https://blob.example/photo.webp" }], {
+        map: true,
+        pebblePhotos: true,
+      });
 
       expect(await screen.findByRole("img", { name: "Marker photo for Sarah" })).toBeInTheDocument();
     });
