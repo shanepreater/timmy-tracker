@@ -126,4 +126,12 @@ test("admin can verify a pending pebble, add one, and move it", async ({ page, c
 
   const verifiedPending = await prisma!.pebble.findFirst({ where: { depositedBy: PENDING_MARKER } });
   expect(verifiedPending?.status).toBe("VERIFIED");
+
+  // Delete the pebble just added — confirms both the confirmation
+  // dialog and that it's actually gone, DB-side.
+  page.once("dialog", (dialog) => dialog.accept());
+  await addedRow.getByRole("button", { name: "Delete" }).click();
+
+  await expect(page.getByRole("listitem").filter({ hasText: ADD_MARKER })).toHaveCount(0);
+  expect(await prisma!.pebble.findFirst({ where: { depositedBy: ADD_MARKER } })).toBeNull();
 });

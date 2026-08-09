@@ -158,3 +158,12 @@ export async function movePebble(
     data: { latitude, longitude },
   });
 }
+
+/**
+ * Permanently removes a pebble (pending or verified). Callers delete
+ * any associated photo from Blob storage first (see
+ * deletePebbleAction) — this only touches the DB row.
+ */
+export async function deletePebble(id: string): Promise<void> {
+  await prisma.pebble.delete({ where: { id } });
+}

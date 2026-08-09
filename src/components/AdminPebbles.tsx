@@ -1,9 +1,19 @@
 import type { Pebble } from "@prisma/client";
-import { removePebblePhotoAction, verifyPebbleAction, movePebbleAction } from "@/app/admin/actions";
+import {
+  removePebblePhotoAction,
+  verifyPebbleAction,
+  movePebbleAction,
+  deletePebbleAction,
+} from "@/app/admin/actions";
 import { formatPebbleDate } from "@/lib/pebbles";
 import { AdminAddPebbleForm } from "@/components/AdminAddPebbleForm";
 import { Button } from "@/components/Button";
+import { ConfirmForm } from "@/components/ConfirmForm";
 import { PebblePhoto } from "@/components/PebblePhoto";
+
+function deleteConfirmMessage(pebble: Pebble): string {
+  return `Delete the pebble for ${pebble.depositedBy} (${formatPebbleDate(pebble.depositedAt)})? This can't be undone.`;
+}
 
 type AdminPebblesProps = {
   pebbles: Pebble[];
@@ -48,6 +58,14 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                   <form action={verifyPebbleAction.bind(null, pebble.id)}>
                     <Button type="submit">Verify</Button>
                   </form>
+                  <ConfirmForm
+                    action={deletePebbleAction.bind(null, pebble.id)}
+                    confirmMessage={deleteConfirmMessage(pebble)}
+                  >
+                    <Button type="submit" variant="danger">
+                      Delete
+                    </Button>
+                  </ConfirmForm>
                 </div>
               </li>
             ))}
@@ -76,13 +94,23 @@ export function AdminPebbles({ pebbles }: AdminPebblesProps) {
                       {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)}
                     </span>
                   </div>
-                  {pebblePhotosEnabled && pebble.photoUrl && (
-                    <form action={removePebblePhotoAction.bind(null, pebble.id)}>
-                      <Button type="submit" variant="secondary">
-                        Remove photo
+                  <div className="flex items-center gap-2">
+                    {pebblePhotosEnabled && pebble.photoUrl && (
+                      <form action={removePebblePhotoAction.bind(null, pebble.id)}>
+                        <Button type="submit" variant="secondary">
+                          Remove photo
+                        </Button>
+                      </form>
+                    )}
+                    <ConfirmForm
+                      action={deletePebbleAction.bind(null, pebble.id)}
+                      confirmMessage={deleteConfirmMessage(pebble)}
+                    >
+                      <Button type="submit" variant="danger">
+                        Delete
                       </Button>
-                    </form>
-                  )}
+                    </ConfirmForm>
+                  </div>
                 </div>
                 <form
                   action={movePebbleAction.bind(null, pebble.id)}

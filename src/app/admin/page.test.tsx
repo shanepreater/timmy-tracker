@@ -5,6 +5,7 @@ const getAllowedUser = vi.fn();
 const listAllowedUsers = vi.fn();
 const listPendingAccessRequests = vi.fn();
 const listAllPebbles = vi.fn();
+const listOrphanedPhotoUploads = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
@@ -16,6 +17,7 @@ vi.mock("@/lib/auth-guards", () => ({ getAllowedUser }));
 vi.mock("@/lib/allowed-users", () => ({ listAllowedUsers }));
 vi.mock("@/lib/access-requests", () => ({ listPendingAccessRequests }));
 vi.mock("@/lib/pebbles", () => ({ listAllPebbles }));
+vi.mock("@/lib/pebble-photo-orphans", () => ({ listOrphanedPhotoUploads }));
 vi.mock("next/navigation", () => ({ notFound, redirect }));
 vi.mock("@/components/ManageUsers", () => ({
   ManageUsers: () => <div data-testid="manage-users" />,
@@ -23,15 +25,21 @@ vi.mock("@/components/ManageUsers", () => ({
 vi.mock("@/components/AdminPebbles", () => ({
   AdminPebbles: () => <div data-testid="admin-pebbles" />,
 }));
+vi.mock("@/components/ManageOrphanedPhotos", () => ({
+  ManageOrphanedPhotos: () => <div data-testid="manage-orphaned-photos" />,
+}));
 
 beforeEach(() => {
   getAllowedUser.mockReset();
   listAllowedUsers.mockReset();
   listPendingAccessRequests.mockReset();
   listAllPebbles.mockReset();
+  listOrphanedPhotoUploads.mockReset();
+  listOrphanedPhotoUploads.mockResolvedValue([]);
   notFound.mockClear();
   redirect.mockClear();
   vi.stubEnv("FEATURE_ADMIN", "true");
+  vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "");
 });
 
 afterEach(() => {
@@ -91,9 +99,47 @@ describe("AdminPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: /manage pebbles/i })).toBeInTheDocument();
     expect(screen.getByTestId("admin-pebbles")).toBeInTheDocument();
     expect(screen.queryByTestId("manage-users")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("manage-orphaned-photos")).not.toBeInTheDocument();
+  });
+
+  it("doesn't show the orphaned-photos tab when pebble photos are disabled", async () => {
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams("orphans") }));
+
+    // Falls back to the access tab — ?tab=orphans is only honored when
+    // the feature that produces orphans is actually on.
+    expect(screen.getByRole("heading", { level: 2, name: /manage access/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /orphaned photos/i })).not.toBeInTheDocument();
+    expect(listOrphanedPhotoUploads).not.toHaveBeenCalled();
+  });
+
+  it("shows the orphaned-photos tab on its own, separate from Manage pebbles", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
+    vi.resetModules();
+    getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
+    listAllowedUsers.mockResolvedValue([]);
+    listPendingAccessRequests.mockResolvedValue([]);
+    listAllPebbles.mockResolvedValue([]);
+    const { default: AdminPage } = await import("./page");
+
+    render(await AdminPage({ searchParams: searchParams("orphans") }));
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: /orphaned photo uploads/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("manage-orphaned-photos")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-pebbles")).not.toBeInTheDocument();
+    expect(listOrphanedPhotoUploads).toHaveBeenCalledTimes(1);
   });
 
   it("shows tab navigation to switch between sections", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS", "true");
     vi.resetModules();
     getAllowedUser.mockResolvedValue({ id: "u1", isAdmin: true });
     listAllowedUsers.mockResolvedValue([]);
@@ -105,7 +151,9 @@ describe("AdminPage", () => {
 
     const accessTab = screen.getByRole("link", { name: /manage access/i });
     const pebblesTab = screen.getByRole("link", { name: /manage pebbles/i });
+    const orphansTab = screen.getByRole("link", { name: /orphaned photos/i });
     expect(accessTab).toHaveAttribute("aria-current", "page");
     expect(pebblesTab).toHaveAttribute("href", "/admin?tab=pebbles");
+    expect(orphansTab).toHaveAttribute("href", "/admin?tab=orphans");
   });
 });

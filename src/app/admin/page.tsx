@@ -4,8 +4,10 @@ import { getAllowedUser } from "@/lib/auth-guards";
 import { listAllowedUsers } from "@/lib/allowed-users";
 import { listPendingAccessRequests } from "@/lib/access-requests";
 import { listAllPebbles } from "@/lib/pebbles";
+import { listOrphanedPhotoUploads } from "@/lib/pebble-photo-orphans";
 import { ManageUsers } from "@/components/ManageUsers";
 import { AdminPebbles } from "@/components/AdminPebbles";
+import { ManageOrphanedPhotos } from "@/components/ManageOrphanedPhotos";
 import { PageContainer } from "@/components/PageContainer";
 import { AdminTabs, type AdminTab } from "@/components/AdminTabs";
 
@@ -30,27 +32,38 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   }
 
   const { tab } = await searchParams;
-  const activeTab: AdminTab = tab === "pebbles" ? "pebbles" : "access";
+  const activeTab: AdminTab =
+    tab === "pebbles"
+      ? "pebbles"
+      : tab === "orphans" && featureFlags.pebblePhotos
+        ? "orphans"
+        : "access";
 
-  const [allowedUsers, pendingRequests, pebbles] = await Promise.all([
+  const [allowedUsers, pendingRequests, pebbles, orphanedUploads] = await Promise.all([
     listAllowedUsers(),
     listPendingAccessRequests(),
     listAllPebbles(),
+    featureFlags.pebblePhotos ? listOrphanedPhotoUploads() : Promise.resolve([]),
   ]);
 
   return (
     <PageContainer maxWidth="4xl">
       <h1 className="heading-1">Admin</h1>
-      <AdminTabs active={activeTab} />
+      <AdminTabs active={activeTab} showOrphans={featureFlags.pebblePhotos} />
       {activeTab === "access" ? (
         <div className="flex flex-col gap-8">
           <h2 className="heading-2">Manage access</h2>
           <ManageUsers allowedUsers={allowedUsers} pendingRequests={pendingRequests} />
         </div>
-      ) : (
+      ) : activeTab === "pebbles" ? (
         <div className="flex flex-col gap-8">
           <h2 className="heading-2">Manage pebbles</h2>
           <AdminPebbles pebbles={pebbles} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-8">
+          <h2 className="heading-2">Orphaned photo uploads</h2>
+          <ManageOrphanedPhotos orphans={orphanedUploads} />
         </div>
       )}
     </PageContainer>

@@ -82,12 +82,27 @@ and allowed-user actions in that file.
   its public submit behavior (validation, `useActionState`, error
   display) is untouched.
 
+## Amendment (2026-08-10): Delete a pebble
+
+**Status: implemented.** Live-testing feedback: there was no way to
+remove a pebble at all — only verify, move, or (with photos enabled)
+clear its photo. Closes the "Reject/delete a pending pebble" deferral
+below, extended to cover verified pebbles too (not just pending ones —
+testers wanted to remove mistakes regardless of status).
+
+| Concern | Choice | Why |
+|---|---|---|
+| Soft vs. hard delete | Hard delete (`prisma.pebble.delete`) | No admin audit trail exists yet (`docs/features.md`'s "Admin audit trail" is separate, still-open backlog) to make a soft-delete's "who/why" meaningful — a hidden-but-retained row would just be dead weight with no way to review it. Revisit if the audit trail entry ships first. |
+| Confirmation | Client-side `window.confirm()` before submitting (`ConfirmForm`, a new shared component) | Deletion is destructive and irreversible (no soft-delete); every other admin pebble action (verify, move) is either reversible or idempotent and intentionally has no confirmation step, so this is the first admin action that needed one. |
+| Photo cleanup | If the pebble has `photoUrl`, deletes the Blob object first, then the DB row (same ordering as `removePebblePhotoAction`) | Reuses `deletePebblePhoto()` unchanged — a pebble is deleted the same way its photo alone already could be, just with one more step. |
+| Rejected submitter notification | Not built | No email/notification system exists anywhere in this codebase yet; out of scope for a single delete button. |
+
+New: `deletePebble(id)` in `src/lib/pebbles.ts` (hard delete by id) and
+`deletePebbleAction(id, formData)` in `src/app/admin/actions.ts`
+(`assertAdminFeatureEnabled()` + `requireAdmin()`, same policy as every
+other action in that file).
+
 ## Deferred (tracked separately, not part of this change)
 
-* **Reject/delete a pending pebble** — an admin currently can only
-  verify or ignore a pending submission, not remove a clearly bogus one.
-  Small in isolation but needs its own decision on soft- vs hard-delete
-  and whether a rejected submitter is notified; worth a future
-  `docs/features.md` entry rather than folding in here.
 * **Bulk verify** — out of scope for a low-volume, family-and-friends
   site; not worth the UI complexity yet.

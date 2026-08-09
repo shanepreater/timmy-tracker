@@ -1,12 +1,15 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminPebbles } from "./AdminPebbles";
 import type { Pebble } from "@prisma/client";
+
+const deletePebbleAction = vi.fn();
 
 vi.mock("@/app/admin/actions", () => ({
   verifyPebbleAction: vi.fn(),
   movePebbleAction: vi.fn(),
   removePebblePhotoAction: vi.fn(),
+  deletePebbleAction: (...args: unknown[]) => deletePebbleAction(...args),
 }));
 
 vi.mock("@/components/AdminAddPebbleForm", () => ({
@@ -27,6 +30,13 @@ const basePebble: Pebble = {
 };
 
 describe("AdminPebbles", () => {
+  const confirmSpy = vi.spyOn(window, "confirm");
+
+  beforeEach(() => {
+    deletePebbleAction.mockReset();
+    confirmSpy.mockReset();
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -57,6 +67,37 @@ describe("AdminPebbles", () => {
     expect(screen.getByRole("button", { name: "Save location" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("48.8584")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2.2945")).toBeInTheDocument();
+  });
+
+  it("deletes a pending pebble after confirming", () => {
+    confirmSpy.mockReturnValue(true);
+    render(<AdminPebbles pebbles={[basePebble]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Delete the pebble for Sarah (Mar 1, 2026)? This can't be undone.",
+    );
+    expect(deletePebbleAction).toHaveBeenCalledWith("p1", expect.any(FormData));
+  });
+
+  it("doesn't delete when the confirmation is cancelled", () => {
+    confirmSpy.mockReturnValue(false);
+    render(<AdminPebbles pebbles={[basePebble]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(deletePebbleAction).not.toHaveBeenCalled();
+  });
+
+  it("shows a delete control for verified pebbles too", () => {
+    confirmSpy.mockReturnValue(true);
+    const verified: Pebble = { ...basePebble, id: "p2", status: "VERIFIED", verifiedAt: new Date() };
+    render(<AdminPebbles pebbles={[verified]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(deletePebbleAction).toHaveBeenCalledWith("p2", expect.any(FormData));
   });
 
   it("shows remove photo controls when the feature is enabled and photoUrl exists", () => {

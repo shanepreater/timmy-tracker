@@ -4,13 +4,14 @@ const findMany = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
 const findUnique = vi.fn();
+const deleteOne = vi.fn();
 
 vi.mock("@/lib/pebble-photo-url", () => ({
   toPebblePhotoDisplayUrl: (url: string) => `/api/pebble-photo?url=${encodeURIComponent(url)}`,
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { pebble: { findMany, create, update, findUnique } },
+  prisma: { pebble: { findMany, create, update, findUnique, delete: deleteOne } },
 }));
 
 const {
@@ -23,6 +24,7 @@ const {
   movePebble,
   getPebblePhotoUrl,
   removePebblePhoto,
+  deletePebble,
 } = await import("./pebbles");
 
 describe("getVerifiedPebbles", () => {
@@ -281,6 +283,19 @@ describe("removePebblePhoto", () => {
       where: { id: "p1" },
       data: { photoUrl: null },
     });
+  });
+});
+
+describe("deletePebble", () => {
+  beforeEach(() => {
+    deleteOne.mockReset();
+    deleteOne.mockResolvedValue(undefined);
+  });
+
+  it("deletes the pebble by id", async () => {
+    await deletePebble("p1");
+
+    expect(deleteOne).toHaveBeenCalledWith({ where: { id: "p1" } });
   });
 });
 
