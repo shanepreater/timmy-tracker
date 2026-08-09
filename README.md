@@ -88,8 +88,11 @@ your local Postgres.
    non-deprecated marker API), which only renders on a map with a Map
    ID — see `docs/design.md`'s Maps row.
 6. Paste the API key into `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and the Map
-   ID into `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` in `.env.local`, then set
-   `NEXT_PUBLIC_FEATURE_MAP="true"` to turn the map on.
+   ID into `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` in `.env.local`, then turn
+   the `map` flag on — not an env var, a DB-backed setting (run
+   `npm run db:seed`, or flip it yourself at `/admin` → Settings once
+   `FEATURE_ADMIN="true"` is set below — see `docs/design.md`'s
+   "Dynamic feature flags" amendment).
 
 ### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — sign-in
 
@@ -118,8 +121,9 @@ your local Postgres.
    a Blob store.
 2. Generate a read/write token for that store.
 3. Set `BLOB_READ_WRITE_TOKEN` in `.env.local`.
-4. Set `NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS="true"` to expose photo
-   upload controls in submit/admin forms.
+4. Turn the `pebblePhotos` flag on (DB-backed, same as `map` above —
+   `npm run db:seed` or `/admin` → Settings) to expose photo upload
+   controls in submit/admin forms.
 
 ## Development
 

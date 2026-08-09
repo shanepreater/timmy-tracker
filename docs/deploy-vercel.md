@@ -93,11 +93,14 @@ section for how to obtain each one:
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | From the same Google Cloud project's Map Management |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Same OAuth client as local dev works, as long as the production redirect URI is added — see step 4 |
 | `AUTH_SECRET` | Generate a **fresh** value for production: `npx auth secret` — don't reuse your local `.env.local` secret |
-| `NEXT_PUBLIC_FEATURE_MAP` | `true` |
-| `NEXT_PUBLIC_FEATURE_SUBMIT_PEBBLE` | `true` |
-| `NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS` | `true` |
 | `FEATURE_ADMIN` | `true` (so you can approve testers and manage pebbles from `/admin`) |
 | `FEATURE_AUTH_GATE` | `true` (recommended — this is a private memorial site for a known circle of people, not a public product; see `docs/design-access-control.md`) |
+
+`map`/`submitPebble`/`pebblePhotos` are **not** environment variables
+— they're DB-backed (`AppSetting` table, `docs/design.md`'s "Dynamic
+feature flags" amendment), toggled from `/admin` → Settings after
+deploy, or seeded to `"true"` by `npm run db:seed` (see step 5.3
+below) so they don't default off on a fresh production database.
 
 Environment variable changes only take effect on the **next**
 deployment — adding these before step 5's first deploy means you only
@@ -145,11 +148,15 @@ link.
    ```
    This is the same command CI runs against its throwaway Postgres
    service — see `.github/workflows/ci.yml`.
-3. Seed data (optional, recommended for the first testing round):
+3. Seed data — **not optional** now that the `map`/`submitPebble`/
+   `pebblePhotos` flags are DB-backed rather than env vars (see step 3
+   above): without this, a fresh production database has no rows for
+   them at all, and they fail closed (off), so the site looks entirely
+   empty regardless of what's set in Vercel's dashboard.
    ```bash
    DATABASE_URL="<same direct connection string>" npm run db:seed
    ```
-   `prisma/seed.ts` does two things:
+   `prisma/seed.ts` does three things:
    * Inserts ten placeholder pebbles (Eiffel Tower, Golden Gate, etc.)
      so the map isn't empty on first load — these are explicitly
      template data (see the comment at the top of the file) and
@@ -159,6 +166,11 @@ link.
      `AllowedUser`. **Run this before you rely on
      `FEATURE_AUTH_GATE=true`** — otherwise the first sign-in locks
      you out with no admin to approve anyone, including yourself.
+   * Seeds `map`/`submitPebble`/`pebblePhotos` to `"true"` and the
+     orphaned-photo cleanup delay to 15 minutes (`AppSetting` table) —
+     `createMany` with `skipDuplicates`, so re-running this later
+     never clobbers a value you've since changed from `/admin` →
+     Settings.
 
 ## 6. Smoke-test the live site
 

@@ -30,10 +30,11 @@ completed items should be read from git history.
 Recommended sequence for finishing remaining work with minimum rework and
 fastest path to stable production:
 
-0. ~~"Delete a pebble (admin)" and "Orphaned photo-upload cleanup
-  (admin)"~~ — done (2026-08-10). Both surfaced by the first real
-  testers on the production deployment (2026-08-09) and jumped the
-  queue ahead of everything below.
+0. ~~"Delete a pebble (admin)", "Orphaned photo-upload cleanup
+  (admin)", and "Dynamic feature flags"~~ — done (2026-08-10). All
+  three surfaced by the first real testers on the production
+  deployment (2026-08-09) and jumped the queue ahead of everything
+  below.
 1. Close out "Associate a photo with a location" (run real Blob e2e +
   manual smoke and mark complete).
 2. Complete "Base framework completion" (production env/runtime parity,
@@ -76,7 +77,8 @@ Acceptance criteria:
 * Production environment has required variables documented and set
   (Postgres, Auth.js, Google Maps where applicable).
 * Prisma migrations apply cleanly in CI and production deploy flow.
-* Map integration can be enabled via `NEXT_PUBLIC_FEATURE_MAP=true` and
+* Map integration can be enabled via the `map` flag (Admin → Settings —
+  see `docs/design.md`'s "Dynamic feature flags" amendment) and
   renders with a live API key and Map ID
   (`NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`, required for `AdvancedMarkerElement`
   markers) in the deployed environment.
@@ -266,14 +268,48 @@ these out. See [docs/design-pebble-photos.md](design-pebble-photos.md)'s
 
 Acceptance criteria:
 * [x] Admin can list raw uploads under `pebbles-raw/` that are older
-  than some threshold (1h — a submission in progress shouldn't be
-  swept mid-fill) via Blob's `list()` API.
+  than some threshold (a submission in progress shouldn't be swept
+  mid-fill) via Blob's `list()` API — admin-adjustable (default 15
+  minutes), not fixed; see "Dynamic feature flags" below.
 * [x] Admin can delete individual orphans or bulk-clear all of them.
 * [x] Action is `requireAdmin()`-gated, same as every other admin
   mutation.
 * [x] Covered by unit tests (`pebble-photo-orphans.test.ts` with
   mocked Blob `list`/`del`, `admin/actions.test.ts`, and
   `ManageOrphanedPhotos.test.tsx`).
+
+### [x] Dynamic feature flags
+Design brief:
+Surfaced while building the orphan-cleanup delay above: a hardcoded
+threshold meant a code change + redeploy every time it needed
+adjusting during live testing — the same friction `map`/
+`submitPebble`/`pebblePhotos` already had as `NEXT_PUBLIC_*` env vars.
+Move both onto one admin-toggleable, DB-backed mechanism. See
+[docs/design.md](design.md)'s "Amendment (2026-08-10): Dynamic feature
+flags".
+
+Acceptance criteria:
+* [x] `map`, `submitPebble`, `pebblePhotos` are stored in a new
+  generic `AppSetting` (key/value) table, not env vars.
+* [x] Admin can toggle each on/off from `/admin` → Settings, with no
+  redeploy required.
+* [x] `FEATURE_ADMIN`/`FEATURE_AUTH_GATE` stay env-var-based
+  (`authGate` structurally can't move — read on the Edge runtime in
+  `proxy.ts`, no Prisma access there).
+* [x] A fresh/unseeded database fails closed (flags off), not open;
+  `prisma/seed.ts` seeds all three `"true"` so the already-live site
+  doesn't regress the moment this migration deploys.
+* [x] No loading-flicker regression on flag-gated client UI — flags
+  reach client components via React Context seeded from a server-
+  fetched value (`FeatureFlagsProvider`), not a client-side fetch on
+  mount.
+* [x] `GET /api/config` remains available as a general-purpose,
+  necessarily-public endpoint for the same data.
+* [x] Covered by unit tests across the full call chain: `app-settings.ts`,
+  `dynamic-feature-flags.ts`, the API route, `FeatureFlagsProvider`,
+  `ManageFeatureFlags`, and every consumer (`Map`, `SubmitPebbleForm`,
+  `AdminAddPebbleForm`, `AdminPebbles`, both upload-token routes,
+  `page.tsx`/`submit/page.tsx`/`submit/actions.ts`/`admin/actions.ts`).
 
 ### [ ] Multiple photos per pebble
 Design brief:
@@ -301,9 +337,10 @@ Acceptance criteria:
   becomes that pebble's main photo).
 * Upload/delete authorization rules match the existing single-photo
   feature (submitter at creation time; admin any time).
-* Feature remains behind `NEXT_PUBLIC_FEATURE_PEBBLE_PHOTOS` (or a new
-  dedicated flag, if the design pass decides the data model change
-  needs its own rollout gate).
+* Feature remains behind the `pebblePhotos` flag (Admin → Settings —
+  DB-backed as of `docs/design.md`'s "Dynamic feature flags" amendment,
+  not an env var) or a new dedicated flag, if the design pass decides
+  the data model change needs its own rollout gate.
 
 ### [ ] Domain launch hardening (trackingtim.com)
 Design brief:
