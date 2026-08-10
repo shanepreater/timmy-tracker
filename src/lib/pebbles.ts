@@ -2,6 +2,7 @@ import type { Pebble } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { SubmitPebbleInput } from "@/lib/pebble-validation";
 import { toPebblePhotoDisplayUrl } from "@/lib/pebble-photo-url";
+import type { PebbleAdditionalPhotoRecord } from "@/lib/pebble-additional-photos";
 
 export type VerifiedPebble = {
   id: string;
@@ -10,7 +11,17 @@ export type VerifiedPebble = {
   depositedBy: string;
   depositedAt: Date;
   photoUrl: string | null;
+  additionalPhotoUrls: string[];
 };
+
+/** listAllPebbles()'s shape — the raw Pebble row plus its additional photos, display-URL-wrapped. */
+export type PebbleWithPhotos = Pebble & { additionalPhotos: PebbleAdditionalPhotoRecord[] };
+
+function nestedAdditionalPhotosWrite(urls: string[] | undefined) {
+  return urls && urls.length > 0
+    ? { create: urls.map((url, index) => ({ url, position: index })) }
+    : undefined;
+}
 
 /**
  * depositedAt is a calendar date with no time-of-day meaning, and it's
@@ -44,12 +55,18 @@ export async function getVerifiedPebbles(): Promise<VerifiedPebble[]> {
       depositedBy: true,
       depositedAt: true,
       photoUrl: true,
+      additionalPhotos: { orderBy: { position: "asc" }, select: { url: true } },
     },
   });
 
   return pebbles.map((pebble) => ({
-    ...pebble,
+    id: pebble.id,
+    latitude: pebble.latitude,
+    longitude: pebble.longitude,
+    depositedBy: pebble.depositedBy,
+    depositedAt: pebble.depositedAt,
     photoUrl: pebble.photoUrl ? toPebblePhotoDisplayUrl(pebble.photoUrl) : null,
+    additionalPhotoUrls: pebble.additionalPhotos.map((photo) => toPebblePhotoDisplayUrl(photo.url)),
   }));
 }
 
@@ -67,6 +84,7 @@ export async function submitPebble(
   input: SubmitPebbleInput,
   submitterEmail?: string,
   photoUrl?: string,
+  additionalPhotoUrls?: string[],
 ): Promise<void> {
   await prisma.pebble.create({
     data: {
@@ -77,6 +95,7 @@ export async function submitPebble(
       submitterEmail,
       depositedAt: input.depositedAt,
       status: "PENDING",
+      additionalPhotos: nestedAdditionalPhotosWrite(additionalPhotoUrls),
     },
   });
 }
@@ -85,14 +104,19 @@ export async function submitPebble(
  * Every pebble, for the admin view — unlike getVerifiedPebbles(), which
  * only shows what's already public.
  */
-export async function listAllPebbles(): Promise<Pebble[]> {
+export async function listAllPebbles(): Promise<PebbleWithPhotos[]> {
   const pebbles = await prisma.pebble.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    include: { additionalPhotos: { orderBy: { position: "asc" } } },
   });
 
   return pebbles.map((pebble) => ({
     ...pebble,
     photoUrl: pebble.photoUrl ? toPebblePhotoDisplayUrl(pebble.photoUrl) : null,
+    additionalPhotos: pebble.additionalPhotos.map((photo) => ({
+      ...photo,
+      url: toPebblePhotoDisplayUrl(photo.url),
+    })),
   }));
 }
 
@@ -104,6 +128,7 @@ export async function listAllPebbles(): Promise<Pebble[]> {
 export async function createPebbleByAdmin(
   input: SubmitPebbleInput,
   photoUrl?: string,
+  additionalPhotoUrls?: string[],
 ): Promise<void> {
   await prisma.pebble.create({
     data: {
@@ -115,6 +140,7 @@ export async function createPebbleByAdmin(
       depositedAt: input.depositedAt,
       status: "VERIFIED",
       verifiedAt: new Date(),
+      additionalPhotos: nestedAdditionalPhotosWrite(additionalPhotoUrls),
     },
   });
 }
@@ -161,8 +187,10 @@ export async function movePebble(
 
 /**
  * Permanently removes a pebble (pending or verified). Callers delete
- * any associated photo from Blob storage first (see
- * deletePebbleAction) — this only touches the DB row.
+ * any associated photo(s) from Blob storage first — the primary photo
+ * and every additional photo (see deletePebbleAction) — this only
+ * touches the DB row. The additionalPhotos relation cascades on
+ * delete, but that only removes those rows, not their Blob objects.
  */
 export async function deletePebble(id: string): Promise<void> {
   await prisma.pebble.delete({ where: { id } });

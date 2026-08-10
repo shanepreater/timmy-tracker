@@ -276,3 +276,68 @@ describe("pebble photo helpers (integration)", () => {
     expect(stored?.photoUrl).toBeNull();
   });
 });
+
+describe("additional photos (integration)", () => {
+  const MARKER = "integration-test-additional-photos";
+
+  beforeAll(async () => {
+    await prisma.pebble.deleteMany({ where: { depositedBy: MARKER } });
+  });
+
+  it("submitPebble persists additional photos in order, and they round-trip through getVerifiedPebbles/listAllPebbles", async () => {
+    await submitPebble(
+      {
+        latitude: 10,
+        longitude: 20,
+        depositedBy: MARKER,
+        depositedAt: new Date("2026-05-01"),
+      },
+      undefined,
+      "https://blob.example/primary.webp",
+      ["https://blob.example/extra-a.webp", "https://blob.example/extra-b.webp"],
+    );
+
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: MARKER },
+      include: { additionalPhotos: { orderBy: { position: "asc" } } },
+    });
+    expect(stored?.additionalPhotos.map((photo) => photo.url)).toEqual([
+      "https://blob.example/extra-a.webp",
+      "https://blob.example/extra-b.webp",
+    ]);
+
+    // submitPebble always creates PENDING — verify it so it shows up in getVerifiedPebbles.
+    await verifyPebble(stored!.id);
+
+    const verified = await getVerifiedPebbles();
+    const verifiedMatch = verified.find((pebble) => pebble.depositedBy === MARKER);
+    expect(verifiedMatch?.additionalPhotoUrls).toEqual([
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fextra-a.webp",
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fextra-b.webp",
+    ]);
+
+    const all = await listAllPebbles();
+    const allMatch = all.find((pebble) => pebble.depositedBy === MARKER);
+    expect(allMatch?.additionalPhotos.map((photo) => photo.url)).toEqual([
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fextra-a.webp",
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fextra-b.webp",
+    ]);
+  });
+
+  it("deleting the pebble cascades to its additional-photo rows", async () => {
+    await createPebbleByAdmin(
+      { latitude: 1, longitude: 1, depositedBy: MARKER, depositedAt: new Date("2026-05-01") },
+      undefined,
+      ["https://blob.example/cascade.webp"],
+    );
+    const stored = await prisma.pebble.findFirst({
+      where: { depositedBy: MARKER, additionalPhotos: { some: { url: "https://blob.example/cascade.webp" } } },
+    });
+    expect(stored).not.toBeNull();
+
+    await prisma.pebble.delete({ where: { id: stored!.id } });
+
+    const remaining = await prisma.pebbleAdditionalPhoto.findMany({ where: { pebbleId: stored!.id } });
+    expect(remaining).toHaveLength(0);
+  });
+});
