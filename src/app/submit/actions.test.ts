@@ -4,7 +4,9 @@ import type { SubmitPebbleState } from "./actions";
 const submitPebble = vi.fn();
 const requireAllowedUser = vi.fn();
 const processUploadedPebblePhoto = vi.fn();
+const processUploadedPebblePhotos = vi.fn();
 const getDynamicFeatureFlags = vi.fn();
+const getMaxAdditionalPhotos = vi.fn();
 class FakePhotoValidationError extends Error {}
 
 class FakeUnauthorizedError extends Error {}
@@ -12,7 +14,11 @@ class FakeUnauthorizedError extends Error {}
 vi.mock("@/lib/pebbles", () => ({ submitPebble }));
 vi.mock("@/lib/pebble-photos", () => ({
   processUploadedPebblePhoto,
+  processUploadedPebblePhotos,
   PhotoValidationError: FakePhotoValidationError,
+}));
+vi.mock("@/lib/pebble-additional-photos", () => ({
+  getMaxAdditionalPhotos: (...args: unknown[]) => getMaxAdditionalPhotos(...args),
 }));
 vi.mock("@/lib/auth-guards", () => ({
   requireAllowedUser,
@@ -45,8 +51,12 @@ beforeEach(() => {
   requireAllowedUser.mockReset();
   processUploadedPebblePhoto.mockReset();
   processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
+  processUploadedPebblePhotos.mockReset();
+  processUploadedPebblePhotos.mockResolvedValue([]);
   getDynamicFeatureFlags.mockReset();
   getDynamicFeatureFlags.mockResolvedValue({ map: false, submitPebble: true, pebblePhotos: false });
+  getMaxAdditionalPhotos.mockReset();
+  getMaxAdditionalPhotos.mockResolvedValue(5);
   vi.stubEnv("FEATURE_AUTH_GATE", "");
 });
 
@@ -97,6 +107,7 @@ describe("submitPebbleAction", () => {
       },
       undefined,
       undefined,
+      undefined,
     );
   });
 
@@ -136,6 +147,7 @@ describe("submitPebbleAction", () => {
         },
         "shane@example.com",
         undefined,
+        undefined,
       );
     });
   });
@@ -153,7 +165,8 @@ describe("submitPebbleAction", () => {
 
       expect(result).toEqual({ status: "success" });
       expect(processUploadedPebblePhoto).not.toHaveBeenCalled();
-      expect(submitPebble).toHaveBeenCalledWith(expect.anything(), undefined, undefined);
+      expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+      expect(submitPebble).toHaveBeenCalledWith(expect.anything(), undefined, undefined, undefined);
     });
 
     it("processes the raw upload and passes photoUrl to submitPebble", async () => {
@@ -177,10 +190,11 @@ describe("submitPebbleAction", () => {
         },
         undefined,
         "https://blob.example/photo.webp",
+        undefined,
       );
     });
 
-    it("returns a photo error when processing throws PhotoValidationError", async () => {
+    it("returns a photo error when processing the primary photo throws PhotoValidationError", async () => {
       vi.resetModules();
       processUploadedPebblePhoto.mockRejectedValue(
         new FakePhotoValidationError("We couldn't process that image. Try a different file."),
@@ -188,6 +202,69 @@ describe("submitPebbleAction", () => {
       const { submitPebbleAction } = await import("./actions");
 
       const data = formData({ ...VALID, rawPhotoUrl: "https://blob.example/raw/tim.jpg" });
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({
+        status: "error",
+        errors: { photo: "We couldn't process that image. Try a different file." },
+      });
+      expect(submitPebble).not.toHaveBeenCalled();
+    });
+
+    it("processes additional photos and passes them to submitPebble", async () => {
+      vi.resetModules();
+      processUploadedPebblePhotos.mockResolvedValue([
+        "https://blob.example/extra-a.webp",
+        "https://blob.example/extra-b.webp",
+      ]);
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      data.append("additionalPhotoUrls", "https://blob.example/raw/extra-a.jpg");
+      data.append("additionalPhotoUrls", "https://blob.example/raw/extra-b.jpg");
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({ status: "success" });
+      expect(processUploadedPebblePhotos).toHaveBeenCalledWith([
+        "https://blob.example/raw/extra-a.jpg",
+        "https://blob.example/raw/extra-b.jpg",
+      ]);
+      expect(submitPebble).toHaveBeenCalledWith(expect.anything(), undefined, undefined, [
+        "https://blob.example/extra-a.webp",
+        "https://blob.example/extra-b.webp",
+      ]);
+    });
+
+    it("rejects (without processing anything) when more additional photos are submitted than the configured max", async () => {
+      vi.resetModules();
+      getMaxAdditionalPhotos.mockResolvedValue(1);
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      data.append("additionalPhotoUrls", "https://blob.example/raw/extra-a.jpg");
+      data.append("additionalPhotoUrls", "https://blob.example/raw/extra-b.jpg");
+
+      const result = await submitPebbleAction(idle, data);
+
+      expect(result).toEqual({
+        status: "error",
+        errors: { photo: "You can add at most 1 additional photos." },
+      });
+      expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+      expect(submitPebble).not.toHaveBeenCalled();
+    });
+
+    it("returns a photo error when processing an additional photo throws PhotoValidationError", async () => {
+      vi.resetModules();
+      processUploadedPebblePhotos.mockRejectedValue(
+        new FakePhotoValidationError("We couldn't process that image. Try a different file."),
+      );
+      const { submitPebbleAction } = await import("./actions");
+
+      const data = formData(VALID);
+      data.append("additionalPhotoUrls", "https://blob.example/raw/extra-a.jpg");
 
       const result = await submitPebbleAction(idle, data);
 
