@@ -1,26 +1,27 @@
-import type { Pebble } from "@prisma/client";
+import { formatPebbleDate, type PebbleWithPhotos } from "@/lib/pebbles";
 import {
   removePebblePhotoAction,
   verifyPebbleAction,
   movePebbleAction,
   deletePebbleAction,
 } from "@/app/admin/actions";
-import { formatPebbleDate } from "@/lib/pebbles";
 import { AdminAddPebbleForm } from "@/components/AdminAddPebbleForm";
+import { AdminAdditionalPhotos } from "@/components/AdminAdditionalPhotos";
 import { Button } from "@/components/Button";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { PebblePhoto } from "@/components/PebblePhoto";
 
-function deleteConfirmMessage(pebble: Pebble): string {
+function deleteConfirmMessage(pebble: PebbleWithPhotos): string {
   return `Delete the pebble for ${pebble.depositedBy} (${formatPebbleDate(pebble.depositedAt)})? This can't be undone.`;
 }
 
 type AdminPebblesProps = {
-  pebbles: Pebble[];
+  pebbles: PebbleWithPhotos[];
   pebblePhotosEnabled: boolean;
+  maxAdditionalPhotos: number;
 };
 
-export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps) {
+export function AdminPebbles({ pebbles, pebblePhotosEnabled, maxAdditionalPhotos }: AdminPebblesProps) {
   const pending = pebbles.filter((pebble) => pebble.status === "PENDING");
   const verified = pebbles.filter((pebble) => pebble.status === "VERIFIED");
 
@@ -33,40 +34,49 @@ export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps
         ) : (
           <ul className="flex flex-col gap-3">
             {pending.map((pebble) => (
-              <li key={pebble.id} className="card flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  {pebblePhotosEnabled && pebble.photoUrl && (
-                    <PebblePhoto
-                      src={pebble.photoUrl}
-                      alt={`Photo for ${pebble.depositedBy}`}
-                      className="h-14 w-14"
-                    />
-                  )}
-                  <span>
-                    {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)} (
-                    {pebble.latitude}, {pebble.longitude})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {pebblePhotosEnabled && pebble.photoUrl && (
-                    <form action={removePebblePhotoAction.bind(null, pebble.id)}>
-                      <Button type="submit" variant="secondary">
-                        Remove photo
-                      </Button>
+              <li key={pebble.id} className="card flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {pebblePhotosEnabled && pebble.photoUrl && (
+                      <PebblePhoto
+                        src={pebble.photoUrl}
+                        alt={`Photo for ${pebble.depositedBy}`}
+                        className="h-14 w-14"
+                      />
+                    )}
+                    <span>
+                      {pebble.depositedBy} — {formatPebbleDate(pebble.depositedAt)} (
+                      {pebble.latitude}, {pebble.longitude})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pebblePhotosEnabled && pebble.photoUrl && (
+                      <form action={removePebblePhotoAction.bind(null, pebble.id)}>
+                        <Button type="submit" variant="secondary">
+                          Remove primary photo
+                        </Button>
+                      </form>
+                    )}
+                    <form action={verifyPebbleAction.bind(null, pebble.id)}>
+                      <Button type="submit">Verify</Button>
                     </form>
-                  )}
-                  <form action={verifyPebbleAction.bind(null, pebble.id)}>
-                    <Button type="submit">Verify</Button>
-                  </form>
-                  <ConfirmForm
-                    action={deletePebbleAction.bind(null, pebble.id)}
-                    confirmMessage={deleteConfirmMessage(pebble)}
-                  >
-                    <Button type="submit" variant="danger">
-                      Delete
-                    </Button>
-                  </ConfirmForm>
+                    <ConfirmForm
+                      action={deletePebbleAction.bind(null, pebble.id)}
+                      confirmMessage={deleteConfirmMessage(pebble)}
+                    >
+                      <Button type="submit" variant="danger">
+                        Delete
+                      </Button>
+                    </ConfirmForm>
+                  </div>
                 </div>
+                {pebblePhotosEnabled && (
+                  <AdminAdditionalPhotos
+                    pebbleId={pebble.id}
+                    photos={pebble.additionalPhotos}
+                    max={maxAdditionalPhotos}
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -98,7 +108,7 @@ export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps
                     {pebblePhotosEnabled && pebble.photoUrl && (
                       <form action={removePebblePhotoAction.bind(null, pebble.id)}>
                         <Button type="submit" variant="secondary">
-                          Remove photo
+                          Remove primary photo
                         </Button>
                       </form>
                     )}
@@ -112,6 +122,13 @@ export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps
                     </ConfirmForm>
                   </div>
                 </div>
+                {pebblePhotosEnabled && (
+                  <AdminAdditionalPhotos
+                    pebbleId={pebble.id}
+                    photos={pebble.additionalPhotos}
+                    max={maxAdditionalPhotos}
+                  />
+                )}
                 <form
                   action={movePebbleAction.bind(null, pebble.id)}
                   className="flex items-center gap-2"
@@ -153,7 +170,7 @@ export function AdminPebbles({ pebbles, pebblePhotosEnabled }: AdminPebblesProps
       </section>
 
       <section>
-        <AdminAddPebbleForm />
+        <AdminAddPebbleForm maxAdditionalPhotos={maxAdditionalPhotos} />
       </section>
     </div>
   );
