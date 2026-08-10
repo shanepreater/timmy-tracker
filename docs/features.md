@@ -311,35 +311,34 @@ Acceptance criteria:
   `AdminAddPebbleForm`, `AdminPebbles`, both upload-token routes,
   `page.tsx`/`submit/page.tsx`/`submit/actions.ts`/`admin/actions.ts`).
 
-### [ ] Multiple photos per pebble
+### [x] Multiple photos per pebble
 Design brief:
 Live-testing feedback (2026-08-09): a main photo plus additional ones
 per pebble, not just the single photo the current
 `Pebble.photoUrl` column supports.
 
-Storage/management shipped, narrower than originally sketched below:
-rather than migrating `photoUrl` into a join table, `Pebble.photoUrl`
-stays exactly as the primary photo, and a new `PebbleAdditionalPhoto`
-table holds 0..N additional photos purely on top of it — no data
-migration, no change to any existing pebble. See
-`docs/design-pebble-photos.md`'s "Amendment (2026-08-10): multiple
-photos per pebble" for the full design.
+Shipped narrower than originally sketched below: rather than migrating
+`photoUrl` into a join table, `Pebble.photoUrl` stays exactly as the
+primary photo, and a new `PebbleAdditionalPhoto` table holds 0..N
+additional photos purely on top of it — no data migration, no change
+to any existing pebble. See `docs/design-pebble-photos.md`'s
+"Amendment (2026-08-10): multiple photos per pebble" for the full
+design.
 
-**Public display is not done** — two approaches (a carousel inside the
-map's `InfoWindow`; the carousel moved to a sibling component below the
-map) were tried live and rejected on UX grounds. See that same design
-doc's "Display: deferred pending feedback" section for what was tried
-and why, before attempting a third approach. The map currently shows
-only the primary photo, same as before this feature — additional
-photos are stored and admin-manageable but not visible anywhere on the
-public site yet.
+**Display is a deliberately rough first cut**, not a finished design —
+a plain `PebblePhotoCarousel` at its original modest size inside the
+map's `InfoWindow`, shipped as-is specifically to gather real user
+feedback on. Two attempts at making it bigger/nicer were tried live
+and reverted (see that same design doc's "Note: this is a rough-draft
+first cut, deliberately" section) — expect this to change again once
+there's feedback.
 
 Acceptance criteria:
 * [x] A pebble can have zero, one, or many additional photos, on top
   of its one primary photo.
-* [ ] The primary photo (if any) is shown on map markers/thumbnails;
-  additional photos are reachable from the map in some as-yet-decided
-  way, and from the admin view.
+* [x] The primary photo (if any) is shown on map markers/thumbnails;
+  additional photos are reachable from the map's InfoWindow (as a
+  rough-draft carousel, pending feedback) and the admin view.
 * [x] Upload/delete authorization: additional photos can be added at
   creation time (matches the primary photo's existing policy) or later
   by an admin; removed only by an admin, any time.

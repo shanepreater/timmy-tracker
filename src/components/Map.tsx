@@ -10,6 +10,7 @@ import {
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 import { PebblePhoto } from "@/components/PebblePhoto";
+import { PebblePhotoCarousel } from "@/components/PebblePhotoCarousel";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -26,14 +27,6 @@ type MapProps = {
  * https://developers.google.com/maps/documentation/javascript/advanced-markers/migration.
  * AdvancedMarkerElement only renders on a map with a Map ID, hence the
  * mapId prop and the placeholder fallback when it's unset.
- *
- * Shows only the primary photo (selectedPebble.photoUrl) in the
- * InfoWindow — a carousel of primary + additional photos was tried
- * here and reverted (see git history around 2026-08-10: it broke
- * inside InfoWindow's own viewport-relative bounds, and a follow-up
- * attempt moving it to a sibling component below the map still wasn't
- * right). Revisit once there's a clearer idea of how the additional
- * photos should actually be presented.
  */
 export function Map({ pebbles }: MapProps) {
   const flags = useFeatureFlags();
@@ -96,24 +89,29 @@ export function Map({ pebbles }: MapProps) {
           );
         })}
 
-        {selectedPebble && (
-          <InfoWindow
-            position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
-            onCloseClick={() => setSelectedPebbleId(null)}
-          >
-            <div className="flex flex-col gap-1 text-sm text-stone-900">
-              {flags.pebblePhotos && selectedPebble.photoUrl && (
-                <PebblePhoto
-                  src={selectedPebble.photoUrl}
-                  alt={`Photo for ${selectedPebble.depositedBy}`}
-                  className="mb-2 h-24 w-24"
-                />
-              )}
-              <span className="font-semibold">{selectedPebble.depositedBy}</span>
-              <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
-            </div>
-          </InfoWindow>
-        )}
+        {selectedPebble &&
+          (() => {
+            const photos = flags.pebblePhotos
+              ? [selectedPebble.photoUrl, ...selectedPebble.additionalPhotoUrls]
+                  .filter((url): url is string => Boolean(url))
+                  .map((url) => ({ url, alt: `Photo for ${selectedPebble.depositedBy}` }))
+              : [];
+
+            return (
+              <InfoWindow
+                position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
+                onCloseClick={() => setSelectedPebbleId(null)}
+              >
+                <div className="flex flex-col gap-1 text-sm text-stone-900">
+                  {photos.length > 0 && (
+                    <PebblePhotoCarousel photos={photos} className="mb-2 h-24 w-24" />
+                  )}
+                  <span className="font-semibold">{selectedPebble.depositedBy}</span>
+                  <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
+                </div>
+              </InfoWindow>
+            );
+          })()}
       </GoogleMap>
     </APIProvider>
   );
