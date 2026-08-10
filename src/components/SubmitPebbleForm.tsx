@@ -5,12 +5,18 @@ import { APIProvider } from "@vis.gl/react-google-maps";
 import { submitPebbleAction, type SubmitPebbleState } from "@/app/submit/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
 import { PebblePhotoField } from "@/components/PebblePhotoField";
+import { AdditionalPebblePhotosField } from "@/components/AdditionalPebblePhotosField";
 import { Button } from "@/components/Button";
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 
 const initialState: SubmitPebbleState = { status: "idle" };
 
-export function SubmitPebbleForm() {
+type SubmitPebbleFormProps = {
+  /** Server-configured cap on additional photos — see docs/design-pebble-photos.md. */
+  maxAdditionalPhotos: number;
+};
+
+export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const { pebblePhotos: pebblePhotosEnabled } = useFeatureFlags();
   const [state, formAction, isPending] = useActionState(submitPebbleAction, initialState);
@@ -18,6 +24,7 @@ export function SubmitPebbleForm() {
   const [longitude, setLongitude] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [additionalPhotosUploading, setAdditionalPhotosUploading] = useState(false);
 
   if (state.status === "success") {
     return (
@@ -119,7 +126,19 @@ export function SubmitPebbleForm() {
         />
       )}
 
-      <Button type="submit" disabled={isPending || photoUploading} className="self-start">
+      {pebblePhotosEnabled && maxAdditionalPhotos > 0 && (
+        <AdditionalPebblePhotosField
+          context="submit"
+          max={maxAdditionalPhotos}
+          onUploadingChange={setAdditionalPhotosUploading}
+        />
+      )}
+
+      <Button
+        type="submit"
+        disabled={isPending || photoUploading || additionalPhotosUploading}
+        className="self-start"
+      >
         {isPending ? "Submitting…" : "Submit pebble"}
       </Button>
     </form>

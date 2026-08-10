@@ -10,10 +10,17 @@ vi.mock("@/lib/dynamic-feature-flags", () => ({
   getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
 }));
 
+const getMaxAdditionalPhotos = vi.fn();
+vi.mock("@/lib/pebble-additional-photos", () => ({
+  getMaxAdditionalPhotos: (...args: unknown[]) => getMaxAdditionalPhotos(...args),
+}));
+
 const { default: SubmitPage } = await import("./page");
 
 beforeEach(() => {
   getDynamicFeatureFlags.mockReset();
+  getMaxAdditionalPhotos.mockReset();
+  getMaxAdditionalPhotos.mockResolvedValue(5);
 });
 
 describe("SubmitPage", () => {

@@ -6,11 +6,13 @@ import { listAllowedUsers } from "@/lib/allowed-users";
 import { listPendingAccessRequests } from "@/lib/access-requests";
 import { listAllPebbles } from "@/lib/pebbles";
 import { getOrphanMinAgeMinutes, listOrphanedPhotoUploads } from "@/lib/pebble-photo-orphans";
+import { getMaxAdditionalPhotos } from "@/lib/pebble-additional-photos";
 import { ManageUsers } from "@/components/ManageUsers";
 import { AdminPebbles } from "@/components/AdminPebbles";
 import { ManageOrphanedPhotos } from "@/components/ManageOrphanedPhotos";
 import { ManageFeatureFlags } from "@/components/ManageFeatureFlags";
 import { ManageOrphanDelay } from "@/components/ManageOrphanDelay";
+import { ManageMaxAdditionalPhotos } from "@/components/ManageMaxAdditionalPhotos";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
 import { PageContainer } from "@/components/PageContainer";
 import { AdminTabs, type AdminTab } from "@/components/AdminTabs";
@@ -37,6 +39,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const flags = await getDynamicFeatureFlags();
   const orphanMinAgeMinutes = await getOrphanMinAgeMinutes();
+  const maxAdditionalPhotos = await getMaxAdditionalPhotos();
 
   const { tab } = await searchParams;
   const activeTab: AdminTab =
@@ -70,7 +73,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         ) : activeTab === "pebbles" ? (
           <div className="flex flex-col gap-8">
             <h2 className="heading-2">Manage pebbles</h2>
-            <AdminPebbles pebbles={pebbles} pebblePhotosEnabled={flags.pebblePhotos} />
+            <AdminPebbles
+              pebbles={pebbles}
+              pebblePhotosEnabled={flags.pebblePhotos}
+              maxAdditionalPhotos={maxAdditionalPhotos}
+            />
           </div>
         ) : activeTab === "orphans" ? (
           <div className="flex flex-col gap-8">
@@ -82,6 +89,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <h2 className="heading-2">Settings</h2>
             <ManageFeatureFlags flags={flags} />
             <ManageOrphanDelay minAgeMinutes={orphanMinAgeMinutes} />
+            <ManageMaxAdditionalPhotos maxCount={maxAdditionalPhotos} />
           </div>
         )}
       </PageContainer>

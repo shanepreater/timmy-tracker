@@ -5,10 +5,16 @@ import { APIProvider } from "@vis.gl/react-google-maps";
 import { addPebbleAction, type AddPebbleState } from "@/app/admin/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
 import { PebblePhotoField } from "@/components/PebblePhotoField";
+import { AdditionalPebblePhotosField } from "@/components/AdditionalPebblePhotosField";
 import { Button } from "@/components/Button";
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 
 const initialState: AddPebbleState = { status: "idle" };
+
+type AdminAddPebbleFormProps = {
+  /** Server-configured cap on additional photos — see docs/design-pebble-photos.md. */
+  maxAdditionalPhotos: number;
+};
 
 /**
  * Admin-only equivalent of SubmitPebbleForm: same fields and place-lookup
@@ -16,7 +22,7 @@ const initialState: AddPebbleState = { status: "idle" };
  * docs/design-admin-pebbles.md), and stays on the form after success —
  * an admin adding pebbles is likely to add several in a row.
  */
-export function AdminAddPebbleForm() {
+export function AdminAddPebbleForm({ maxAdditionalPhotos }: AdminAddPebbleFormProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const { pebblePhotos: pebblePhotosEnabled } = useFeatureFlags();
   const [state, formAction, isPending] = useActionState(addPebbleAction, initialState);
@@ -24,6 +30,7 @@ export function AdminAddPebbleForm() {
   const [longitude, setLongitude] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [additionalPhotosUploading, setAdditionalPhotosUploading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Reset the form after a successful add — an admin adding pebbles is
@@ -149,7 +156,19 @@ export function AdminAddPebbleForm() {
         />
       )}
 
-      <Button type="submit" disabled={isPending || photoUploading} className="self-start">
+      {pebblePhotosEnabled && maxAdditionalPhotos > 0 && (
+        <AdditionalPebblePhotosField
+          context="admin"
+          max={maxAdditionalPhotos}
+          onUploadingChange={setAdditionalPhotosUploading}
+        />
+      )}
+
+      <Button
+        type="submit"
+        disabled={isPending || photoUploading || additionalPhotosUploading}
+        className="self-start"
+      >
         {isPending ? "Adding…" : "Add pebble"}
       </Button>
     </form>
