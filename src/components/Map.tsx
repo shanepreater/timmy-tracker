@@ -102,11 +102,11 @@ export function Map({ pebbles }: MapProps) {
                 position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
                 onCloseClick={() => setSelectedPebbleId(null)}
               >
-                <div className="flex w-56 flex-col gap-2 text-base text-stone-900">
+                <div className="flex flex-col gap-1 text-sm text-stone-900">
                   {photos.length > 0 && (
-                    <PebblePhotoCarousel photos={photos} className="h-36 w-36" />
+                    <PebblePhotoCarousel photos={photos} className="mb-2 h-24 w-24" />
                   )}
-                  <span className="text-lg font-semibold">{selectedPebble.depositedBy}</span>
+                  <span className="font-semibold">{selectedPebble.depositedBy}</span>
                   <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
                 </div>
               </InfoWindow>
