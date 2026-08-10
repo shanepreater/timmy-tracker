@@ -128,3 +128,32 @@ export async function processUploadedPebblePhoto(rawUrl: string): Promise<string
 export async function deletePebblePhoto(url: string): Promise<void> {
   await del(url);
 }
+
+/**
+ * Batch sibling of processUploadedPebblePhoto, for a pebble's
+ * additional photos — runs every raw URL concurrently (independent
+ * work, no reason to serialize). If any fail, best-effort deletes the
+ * *processed* blobs that did succeed in this same batch before
+ * re-throwing the first failure, rather than leaving them behind.
+ * Multi-photo is the first place this can happen: with only ever one
+ * photo per pebble, a mid-batch partial failure was never possible.
+ * Those leaked blobs would also never get cleaned up automatically —
+ * the orphan-cleanup admin feature (pebble-photo-orphans.ts) only
+ * scans the pebbles-raw/ prefix (raw uploads), never pebbles/
+ * (already-processed images).
+ */
+export async function processUploadedPebblePhotos(rawUrls: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(rawUrls.map((rawUrl) => processUploadedPebblePhoto(rawUrl)));
+
+  const succeeded = results.filter(
+    (result): result is PromiseFulfilledResult<string> => result.status === "fulfilled",
+  );
+  const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+
+  if (failed) {
+    await Promise.allSettled(succeeded.map((result) => deletePebblePhoto(result.value)));
+    throw failed.reason;
+  }
+
+  return succeeded.map((result) => result.value);
+}
