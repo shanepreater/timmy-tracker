@@ -13,16 +13,37 @@ enum PebbleStatus {
 }
 
 model Pebble {
-  id             String       @id @default(cuid())
-  latitude       Float
-  longitude      Float
-  depositedBy    String
-  photoUrl       String?
-  submitterEmail String?
-  depositedAt    DateTime
-  status         PebbleStatus @default(PENDING)
-  createdAt      DateTime     @default(now())
-  verifiedAt     DateTime?
+  id               String                  @id @default(cuid())
+  latitude         Float
+  longitude        Float
+  depositedBy      String
+  photoUrl         String?
+  submitterEmail   String?
+  depositedAt      DateTime
+  status           PebbleStatus            @default(PENDING)
+  createdAt        DateTime                @default(now())
+  verifiedAt       DateTime?
+  additionalPhotos PebbleAdditionalPhoto[]
+}
+
+/**
+ * Extra photos beyond Pebble.photoUrl (the "primary" photo, unchanged).
+ * Deliberately additive rather than a photoUrl migration — see
+ * docs/design-pebble-photos.md's "Multiple photos per pebble" amendment.
+ * position is an explicit ordering column rather than inferred from
+ * createdAt: rows created together in one batch (nested write or
+ * createMany) can share an identical createdAt, since Postgres's now()
+ * is transaction-start time, not statement time.
+ */
+model PebbleAdditionalPhoto {
+  id        String   @id @default(cuid())
+  pebbleId  String
+  pebble    Pebble   @relation(fields: [pebbleId], references: [id], onDelete: Cascade)
+  url       String
+  position  Int
+  createdAt DateTime @default(now())
+
+  @@index([pebbleId])
 }
 
 model AllowedUser {
