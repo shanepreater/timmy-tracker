@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { APIProvider, Map as GoogleMap, AdvancedMarker } from "@vis.gl/react-google-maps";
+import {
+  APIProvider,
+  Map as GoogleMap,
+  AdvancedMarker,
+  InfoWindow,
+} from "@vis.gl/react-google-maps";
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 import { PebblePhoto } from "@/components/PebblePhoto";
-import { SelectedPebbleDetails } from "@/components/SelectedPebbleDetails";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -22,6 +26,14 @@ type MapProps = {
  * https://developers.google.com/maps/documentation/javascript/advanced-markers/migration.
  * AdvancedMarkerElement only renders on a map with a Map ID, hence the
  * mapId prop and the placeholder fallback when it's unset.
+ *
+ * Shows only the primary photo (selectedPebble.photoUrl) in the
+ * InfoWindow — a carousel of primary + additional photos was tried
+ * here and reverted (see git history around 2026-08-10: it broke
+ * inside InfoWindow's own viewport-relative bounds, and a follow-up
+ * attempt moving it to a sibling component below the map still wasn't
+ * right). Revisit once there's a clearer idea of how the additional
+ * photos should actually be presented.
  */
 export function Map({ pebbles }: MapProps) {
   const flags = useFeatureFlags();
@@ -42,56 +54,67 @@ export function Map({ pebbles }: MapProps) {
 
   const selectedPebble = pebbles.find((pebble) => pebble.id === selectedPebbleId) ?? null;
 
-  function toggleSelected(id: string) {
-    setSelectedPebbleId((current) => (current === id ? null : id));
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      <APIProvider apiKey={apiKey}>
-        <GoogleMap
-          mapId={mapId}
-          style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
-          defaultCenter={DEFAULT_CENTER}
-          defaultZoom={DEFAULT_ZOOM}
-          gestureHandling="greedy"
-          disableDefaultUI={false}
-        >
-          {pebbles.map((pebble) => {
-            const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
+    <APIProvider apiKey={apiKey}>
+      <GoogleMap
+        mapId={mapId}
+        style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
+        defaultCenter={DEFAULT_CENTER}
+        defaultZoom={DEFAULT_ZOOM}
+        gestureHandling="greedy"
+        disableDefaultUI={false}
+      >
+        {pebbles.map((pebble) => {
+          const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
 
-            if (flags.pebblePhotos && pebble.photoUrl) {
-              return (
-                <AdvancedMarker
-                  key={pebble.id}
-                  position={{ lat: pebble.latitude, lng: pebble.longitude }}
-                  title={title}
-                  onClick={() => toggleSelected(pebble.id)}
-                >
-                  <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-stone-100 shadow-lg dark:border-stone-900 dark:bg-stone-800">
-                    <PebblePhoto
-                      src={pebble.photoUrl}
-                      alt={`Marker photo for ${pebble.depositedBy}`}
-                      className="h-full w-full"
-                    />
-                  </div>
-                </AdvancedMarker>
-              );
-            }
-
+          if (flags.pebblePhotos && pebble.photoUrl) {
             return (
               <AdvancedMarker
                 key={pebble.id}
                 position={{ lat: pebble.latitude, lng: pebble.longitude }}
                 title={title}
-                onClick={() => toggleSelected(pebble.id)}
-              />
+                onClick={() => setSelectedPebbleId(pebble.id)}
+              >
+                <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-stone-100 shadow-lg dark:border-stone-900 dark:bg-stone-800">
+                  <PebblePhoto
+                    src={pebble.photoUrl}
+                    alt={`Marker photo for ${pebble.depositedBy}`}
+                    className="h-full w-full"
+                  />
+                </div>
+              </AdvancedMarker>
             );
-          })}
-        </GoogleMap>
-      </APIProvider>
+          }
 
-      <SelectedPebbleDetails pebble={selectedPebble} onClose={() => setSelectedPebbleId(null)} />
-    </div>
+          return (
+            <AdvancedMarker
+              key={pebble.id}
+              position={{ lat: pebble.latitude, lng: pebble.longitude }}
+              title={title}
+              onClick={() => setSelectedPebbleId(pebble.id)}
+            />
+          );
+        })}
+
+        {selectedPebble && (
+          <InfoWindow
+            position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
+            onCloseClick={() => setSelectedPebbleId(null)}
+          >
+            <div className="flex flex-col gap-1 text-sm text-stone-900">
+              {flags.pebblePhotos && selectedPebble.photoUrl && (
+                <PebblePhoto
+                  src={selectedPebble.photoUrl}
+                  alt={`Photo for ${selectedPebble.depositedBy}`}
+                  className="mb-2 h-24 w-24"
+                />
+              )}
+              <span className="font-semibold">{selectedPebble.depositedBy}</span>
+              <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
+    </APIProvider>
   );
 }
