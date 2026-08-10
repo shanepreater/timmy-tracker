@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useState, type ChangeEvent } from "react";
 import { validatePhotoFile } from "@/lib/pebble-photo-constraints";
 import {
   uploadRawPebblePhoto,
@@ -45,16 +45,18 @@ export function AdditionalPebblePhotosField({
 
   const roomRemaining = Math.max(max - slots.length, 0);
 
-  function notifyUploading(nextSlots: Slot[]) {
-    onUploadingChange?.(nextSlots.some((slot) => slot.status === "uploading"));
-  }
+  // Derived from `slots` via an effect, rather than calling
+  // onUploadingChange (the parent's setState) from inside the setSlots
+  // updater functions below — doing it there triggers React's "Cannot
+  // update a component while rendering a different component" warning,
+  // since updater functions run as part of this component's own render.
+  useEffect(() => {
+    onUploadingChange?.(slots.some((slot) => slot.status === "uploading"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
 
   function updateSlot(id: string, slot: Slot) {
-    setSlots((prev) => {
-      const next = prev.map((existing) => (existing.id === id ? slot : existing));
-      notifyUploading(next);
-      return next;
-    });
+    setSlots((prev) => prev.map((existing) => (existing.id === id ? slot : existing)));
   }
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -74,11 +76,7 @@ export function AdditionalPebblePhotosField({
       };
     });
 
-    setSlots((prev) => {
-      const next = [...prev, ...pending.map((p) => p.slot)];
-      notifyUploading(next);
-      return next;
-    });
+    setSlots((prev) => [...prev, ...pending.map((p) => p.slot)]);
 
     await Promise.all(
       pending.map(async ({ file, slot }) => {
@@ -99,11 +97,7 @@ export function AdditionalPebblePhotosField({
   }
 
   function removeSlot(id: string) {
-    setSlots((prev) => {
-      const next = prev.filter((slot) => slot.id !== id);
-      notifyUploading(next);
-      return next;
-    });
+    setSlots((prev) => prev.filter((slot) => slot.id !== id));
   }
 
   return (
