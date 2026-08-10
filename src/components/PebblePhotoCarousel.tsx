@@ -68,7 +68,7 @@ export function PebblePhotoCarousel({ photos, className }: PebblePhotoCarouselPr
         type="button"
         aria-label="Previous photo"
         onClick={() => goTo(index - 1)}
-        className="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2.5 py-1 text-base text-white hover:bg-black/70"
+        className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white hover:bg-black/70"
       >
         ‹
       </button>
@@ -76,11 +76,11 @@ export function PebblePhotoCarousel({ photos, className }: PebblePhotoCarouselPr
         type="button"
         aria-label="Next photo"
         onClick={() => goTo(index + 1)}
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2.5 py-1 text-base text-white hover:bg-black/70"
+        className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-1.5 py-0.5 text-xs text-white hover:bg-black/70"
       >
         ›
       </button>
-      <span className="absolute bottom-1 right-1 rounded-md bg-black/50 px-1.5 py-0.5 text-xs text-white">
+      <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/50 px-1 text-[10px] text-white">
         {index + 1} / {photos.length}
       </span>
     </div>
