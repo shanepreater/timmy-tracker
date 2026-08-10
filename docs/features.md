@@ -311,36 +311,34 @@ Acceptance criteria:
   `AdminAddPebbleForm`, `AdminPebbles`, both upload-token routes,
   `page.tsx`/`submit/page.tsx`/`submit/actions.ts`/`admin/actions.ts`).
 
-### [ ] Multiple photos per pebble
+### [x] Multiple photos per pebble
 Design brief:
 Live-testing feedback (2026-08-09): a main photo plus additional ones
 per pebble, not just the single photo the current
-`Pebble.photoUrl` column supports. Explicitly out of scope for the
-original "Associate a photo with a location" feature (see that design
-doc's "Deferred" section — the brief was singular, "**a** photo") —
-this supersedes that deferral. Needs its own design pass before
-implementation: at minimum, a `PebblePhoto` join table (replacing the
-single `photoUrl` column, with a migration for existing data), a
-"main" vs. "additional" ordering concept, per-photo upload/delete UI
-in both `SubmitPebbleForm` and `AdminAddPebbleForm`/`AdminPebbles`,
-and updated map/admin display components. The client-upload
-architecture from the amendment above (upload-on-select, per-photo
-raw URL) extends naturally to multiple files — no rework expected
-there.
+`Pebble.photoUrl` column supports.
+
+Shipped narrower than originally sketched below: rather than migrating
+`photoUrl` into a join table, `Pebble.photoUrl` stays exactly as the
+primary photo, and a new `PebbleAdditionalPhoto` table holds 0..N
+additional photos purely on top of it — no data migration, no change
+to any existing pebble. See `docs/design-pebble-photos.md`'s
+"Amendment (2026-08-10): multiple photos per pebble" for the full
+design (data model, admin-configurable max count, the
+`PebblePhotoCarousel` display, and why additional photos can be added
+both at creation time and later by an admin, unlike the primary photo
+which is creation-time only).
 
 Acceptance criteria:
-* A pebble can have zero, one, or many photos.
-* Exactly one photo (if any exist) is designated the "main" photo,
-  shown on map markers/thumbnails; additional photos are reachable
-  from pebble detail/admin views.
-* Existing single-photo pebbles migrate cleanly (their `photoUrl`
-  becomes that pebble's main photo).
-* Upload/delete authorization rules match the existing single-photo
-  feature (submitter at creation time; admin any time).
-* Feature remains behind the `pebblePhotos` flag (Admin → Settings —
-  DB-backed as of `docs/design.md`'s "Dynamic feature flags" amendment,
-  not an env var) or a new dedicated flag, if the design pass decides
-  the data model change needs its own rollout gate.
+* [x] A pebble can have zero, one, or many additional photos, on top
+  of its one primary photo.
+* [x] The primary photo (if any) is shown on map markers/thumbnails;
+  additional photos are reachable from the map's InfoWindow (as a
+  carousel) and the admin view.
+* [x] Upload/delete authorization: additional photos can be added at
+  creation time (matches the primary photo's existing policy) or later
+  by an admin; removed only by an admin, any time.
+* [x] Feature remains behind the existing `pebblePhotos` flag (Admin →
+  Settings, DB-backed) — no new dedicated flag needed.
 
 ### [ ] Domain launch hardening (trackingtim.com)
 Design brief:

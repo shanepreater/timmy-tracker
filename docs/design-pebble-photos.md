@@ -253,15 +253,47 @@ New module: `src/lib/pebble-photo-orphans.ts` —
 `assertPebblePhotosEnabled()` (a new shared helper; `removePebblePhotoAction`
 was refactored to use it too, replacing its identical inline check).
 
+## Amendment (2026-08-10): multiple photos per pebble
+
+**Status: implemented.** Live-testing feedback asked for more than one
+photo per pebble. This deliberately supersedes the "Deferred" note
+below with a narrower design than the "Multiple photos per pebble"
+entry in `docs/features.md` originally sketched — that brief assumed
+`photoUrl` itself would get migrated into a join table (`photoUrl`
+becomes "the main photo"). The actual instruction this session was to
+keep the primary photo exactly as-is and add additional photos purely
+on top of it, so that's what shipped: **no `photoUrl` migration, no
+change to any existing pebble's data.**
+
+| Concern | Choice | Why |
+|---|---|---|
+| Data model | New `PebbleAdditionalPhoto` table (`pebbleId` FK `onDelete: Cascade`, `url`, explicit `position Int`) — `Pebble.photoUrl` unchanged | `position` is explicit rather than inferred from `createdAt` because rows created together in one batch insert can share an identical `createdAt` (Postgres's `now()` is transaction-start time, not statement time) — ties are real for exactly the batch-insert case this feature needs. |
+| Creation-time inserts | Prisma nested write (`prisma.pebble.create({ data: { ..., additionalPhotos: { create: [...] } } })`) | Atomic in one call, no `$transaction` needed — this codebase has never used `$transaction`, and Prisma's nested-write API already gives atomicity here for free. |
+| Max additional photos | New `AppSetting` key `MAX_ADDITIONAL_PEBBLE_PHOTOS`, default 5, admin-configurable on the Settings tab (`ManageMaxAdditionalPhotos`) | Same reasoning as `ORPHANED_IMAGE_DELAY_MINS` — a judgment call for whoever's running the site, not a constant worth hardcoding. |
+| Where additional photos can be added | Both at creation time (`SubmitPebbleForm`/`AdminAddPebbleForm`, symmetric with the existing primary-photo field) **and** later, admin-only, to an already-existing pebble (`AdminAdditionalPhotos` in `AdminPebbles`) | Explicit scope decision this session — the original single-photo feature only ever allowed a photo at creation time; additional photos deliberately go further so an admin isn't stuck if more photos of a stone surface later. |
+| Client upload UI | New `AdditionalPebblePhotosField`, a multi-file sibling of `PebblePhotoField` — same upload-on-select pattern, extended to N files, accumulating slots across repeated selections (a native `<input multiple>` replaces its FileList on each pick rather than appending) | Reuses the entire existing per-file pipeline (`uploadRawPebblePhoto`, both upload-token routes, `validatePhotoFile`) unchanged — every additional photo is just another independent call into that same machinery. |
+| Partial-batch failure | New `processUploadedPebblePhotos(rawUrls)` in `pebble-photos.ts`: processes concurrently via `Promise.allSettled`; if any fail, best-effort deletes the *processed* blobs that already succeeded in the same batch before rethrowing | Multi-photo is the first place a mid-batch partial failure can happen (previously only ever one photo per pebble). Without this cleanup, a failed submission would leak permanently-orphaned processed images — the existing orphan-cleanup admin feature only scans the raw-upload prefix, never the processed one. |
+| Over-cap submissions | Rejected with a typed form error at creation time (`errors.photo`); thrown directly for the admin-only "add more later" action (matching `updateOrphanMinAgeMinutesAction`'s plain-throw precedent) | Not silently truncated — a user who picked N photos should get told if N exceeds the cap, not have some silently dropped. |
+| Removing an additional photo | Admin-only, `getAdditionalPhotoUrl` → `deletePebblePhoto` → `deleteAdditionalPhotoRow`, same Blob-then-DB order as `removePebblePhotoAction` | A DB-delete failure after a successful Blob delete just leaves a dangling reference `PebblePhoto`'s existing fallback already handles gracefully; the reverse order risks a permanently orphaned Blob object. |
+| Display | New `PebblePhotoCarousel`: primary photo first, then additional ones, auto-advancing every 3s and looping, with next/prev buttons and a page counter. Passes through to a plain `PebblePhoto` (no chrome) for 0 or 1 photos. Manual nav resets the auto-advance timer imperatively via a ref, not an effect keyed on the current index (ticking would otherwise tear down and recreate the interval every 3s for nothing) | Used only in `Map.tsx`'s `InfoWindow` (the pin-click popup). The small circular marker thumbnail on the pin itself is **unchanged** — primary photo only, no carousel there. |
+| Feature flag | Reuses the existing `pebblePhotos` dynamic flag — no new dedicated flag | Additional photos are strictly additive to the same feature, not separately toggleable. |
+
+New module: `src/lib/pebble-additional-photos.ts` — bundles the max-count
+`AppSetting` getter/setter with the `PebbleAdditionalPhoto` CRUD, same
+bundling pattern as `pebble-photo-orphans.ts`.
+
 ## Deferred (tracked separately, not part of this change)
 
 * **Replacing an existing photo** (upload a new one over an old one,
   rather than remove-then-nothing) — not in the acceptance criteria;
   noted so a future session doesn't assume it was considered and
-  rejected.
-* **Multiple photos per pebble / a gallery** — the feature brief is
-  explicitly singular ("a photo"); out of scope unless a future
-  revision changes that.
+  rejected. Applies to both the primary photo and additional ones.
+* **Reordering additional photos** after creation — position is
+  insertion order only, no drag-reorder UI.
+* **`maxAdditionalPhotos` on the public `GET /api/config` endpoint** —
+  nothing needs a client-side fetch-on-mount for it; it's always
+  available server-side exactly where it's rendered (`submit/page.tsx`,
+  `admin/page.tsx`).
 * **EXIF stripping** — phone photos often carry GPS/location metadata
   in EXIF. `sharp`'s default re-encode already drops EXIF (it doesn't
   copy metadata through by default), so this happens for free as a

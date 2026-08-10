@@ -147,6 +147,7 @@ async function main() {
       { key: "FEATURE_MAP", value: "true" },
       { key: "FEATURE_SUBMIT_PEBBLE", value: "true" },
       { key: "FEATURE_PEBBLE_PHOTOS", value: "true" },
+      { key: "MAX_ADDITIONAL_PEBBLE_PHOTOS", value: "5" },
     ],
     skipDuplicates: true,
   });
