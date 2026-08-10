@@ -1,16 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import {
-  APIProvider,
-  Map as GoogleMap,
-  AdvancedMarker,
-  InfoWindow,
-} from "@vis.gl/react-google-maps";
+import { APIProvider, Map as GoogleMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
 import { PebblePhoto } from "@/components/PebblePhoto";
-import { PebblePhotoCarousel } from "@/components/PebblePhotoCarousel";
+import { SelectedPebbleDetails } from "@/components/SelectedPebbleDetails";
 
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
 const DEFAULT_ZOOM = 2;
@@ -47,72 +42,56 @@ export function Map({ pebbles }: MapProps) {
 
   const selectedPebble = pebbles.find((pebble) => pebble.id === selectedPebbleId) ?? null;
 
-  return (
-    <APIProvider apiKey={apiKey}>
-      <GoogleMap
-        mapId={mapId}
-        style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
-        defaultCenter={DEFAULT_CENTER}
-        defaultZoom={DEFAULT_ZOOM}
-        gestureHandling="greedy"
-        disableDefaultUI={false}
-      >
-        {pebbles.map((pebble) => {
-          const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
+  function toggleSelected(id: string) {
+    setSelectedPebbleId((current) => (current === id ? null : id));
+  }
 
-          if (flags.pebblePhotos && pebble.photoUrl) {
+  return (
+    <div className="flex flex-col gap-4">
+      <APIProvider apiKey={apiKey}>
+        <GoogleMap
+          mapId={mapId}
+          style={{ width: "100%", height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
+          defaultCenter={DEFAULT_CENTER}
+          defaultZoom={DEFAULT_ZOOM}
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+        >
+          {pebbles.map((pebble) => {
+            const title = `${pebble.depositedBy} — ${formatPebbleDate(pebble.depositedAt)}`;
+
+            if (flags.pebblePhotos && pebble.photoUrl) {
+              return (
+                <AdvancedMarker
+                  key={pebble.id}
+                  position={{ lat: pebble.latitude, lng: pebble.longitude }}
+                  title={title}
+                  onClick={() => toggleSelected(pebble.id)}
+                >
+                  <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-stone-100 shadow-lg dark:border-stone-900 dark:bg-stone-800">
+                    <PebblePhoto
+                      src={pebble.photoUrl}
+                      alt={`Marker photo for ${pebble.depositedBy}`}
+                      className="h-full w-full"
+                    />
+                  </div>
+                </AdvancedMarker>
+              );
+            }
+
             return (
               <AdvancedMarker
                 key={pebble.id}
                 position={{ lat: pebble.latitude, lng: pebble.longitude }}
                 title={title}
-                onClick={() => setSelectedPebbleId(pebble.id)}
-              >
-                <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-stone-100 shadow-lg dark:border-stone-900 dark:bg-stone-800">
-                  <PebblePhoto
-                    src={pebble.photoUrl}
-                    alt={`Marker photo for ${pebble.depositedBy}`}
-                    className="h-full w-full"
-                  />
-                </div>
-              </AdvancedMarker>
+                onClick={() => toggleSelected(pebble.id)}
+              />
             );
-          }
+          })}
+        </GoogleMap>
+      </APIProvider>
 
-          return (
-            <AdvancedMarker
-              key={pebble.id}
-              position={{ lat: pebble.latitude, lng: pebble.longitude }}
-              title={title}
-              onClick={() => setSelectedPebbleId(pebble.id)}
-            />
-          );
-        })}
-
-        {selectedPebble &&
-          (() => {
-            const photos = flags.pebblePhotos
-              ? [selectedPebble.photoUrl, ...selectedPebble.additionalPhotoUrls]
-                  .filter((url): url is string => Boolean(url))
-                  .map((url) => ({ url, alt: `Photo for ${selectedPebble.depositedBy}` }))
-              : [];
-
-            return (
-              <InfoWindow
-                position={{ lat: selectedPebble.latitude, lng: selectedPebble.longitude }}
-                onCloseClick={() => setSelectedPebbleId(null)}
-              >
-                <div className="flex flex-col gap-1 text-sm text-stone-900">
-                  {photos.length > 0 && (
-                    <PebblePhotoCarousel photos={photos} className="mb-2 h-24 w-24" />
-                  )}
-                  <span className="font-semibold">{selectedPebble.depositedBy}</span>
-                  <span>{formatPebbleDate(selectedPebble.depositedAt)}</span>
-                </div>
-              </InfoWindow>
-            );
-          })()}
-      </GoogleMap>
-    </APIProvider>
+      <SelectedPebbleDetails pebble={selectedPebble} onClose={() => setSelectedPebbleId(null)} />
+    </div>
   );
 }

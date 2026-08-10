@@ -275,12 +275,38 @@ change to any existing pebble's data.**
 | Partial-batch failure | New `processUploadedPebblePhotos(rawUrls)` in `pebble-photos.ts`: processes concurrently via `Promise.allSettled`; if any fail, best-effort deletes the *processed* blobs that already succeeded in the same batch before rethrowing | Multi-photo is the first place a mid-batch partial failure can happen (previously only ever one photo per pebble). Without this cleanup, a failed submission would leak permanently-orphaned processed images — the existing orphan-cleanup admin feature only scans the raw-upload prefix, never the processed one. |
 | Over-cap submissions | Rejected with a typed form error at creation time (`errors.photo`); thrown directly for the admin-only "add more later" action (matching `updateOrphanMinAgeMinutesAction`'s plain-throw precedent) | Not silently truncated — a user who picked N photos should get told if N exceeds the cap, not have some silently dropped. |
 | Removing an additional photo | Admin-only, `getAdditionalPhotoUrl` → `deletePebblePhoto` → `deleteAdditionalPhotoRow`, same Blob-then-DB order as `removePebblePhotoAction` | A DB-delete failure after a successful Blob delete just leaves a dangling reference `PebblePhoto`'s existing fallback already handles gracefully; the reverse order risks a permanently orphaned Blob object. |
-| Display | New `PebblePhotoCarousel`: primary photo first, then additional ones, auto-advancing every 3s and looping, with next/prev buttons and a page counter. Passes through to a plain `PebblePhoto` (no chrome) for 0 or 1 photos. Manual nav resets the auto-advance timer imperatively via a ref, not an effect keyed on the current index (ticking would otherwise tear down and recreate the interval every 3s for nothing) | Used only in `Map.tsx`'s `InfoWindow` (the pin-click popup). The small circular marker thumbnail on the pin itself is **unchanged** — primary photo only, no carousel there. |
+| Display | New `PebblePhotoCarousel`: primary photo first, then additional ones, auto-advancing every 3s and looping, with next/prev buttons and a page counter. Passes through to a plain `PebblePhoto` (no chrome) for 0 or 1 photos. Manual nav resets the auto-advance timer imperatively via a ref, not an effect keyed on the current index (ticking would otherwise tear down and recreate the interval every 3s for nothing) | Rendered inside `SelectedPebbleDetails`, a plain sibling component below the map — **not** inside Google's `InfoWindow` popup (see the amendment immediately below for why). The small circular marker thumbnail on the pin itself is **unchanged** — primary photo only, no carousel there. |
 | Feature flag | Reuses the existing `pebblePhotos` dynamic flag — no new dedicated flag | Additional photos are strictly additive to the same feature, not separately toggleable. |
 
 New module: `src/lib/pebble-additional-photos.ts` — bundles the max-count
 `AppSetting` getter/setter with the `PebbleAdditionalPhoto` CRUD, same
 bundling pattern as `pebble-photo-orphans.ts`.
+
+## Amendment (2026-08-10): carousel moved out of the InfoWindow
+
+**Status: implemented.** The amendment above originally put the
+carousel directly inside `Map.tsx`'s `google.maps.InfoWindow` (the
+pin-click popup) — tried live and found unusable. `InfoWindow` computes
+its own bubble bounds from the *map's currently-rendered viewport*, not
+the page: a bigger photo pushed content past that computed height,
+Google's own chrome added its own scroll wrapper around our content in
+response, and a CSS `resize` handle on our content fought that same
+constraint (dragging past what Google had allocated didn't grow the
+bubble — it just triggered Google's scrollbar). Both a plain size
+increase and a `resize`-handle experiment were tried and reverted; see
+git history on this file for both attempts.
+
+Fix: `PebblePhotoCarousel` (and the depositedBy/date it used to share
+space with in the popup) moved into a new component,
+`SelectedPebbleDetails`, rendered as a **plain sibling below the map**
+in `Map.tsx`'s own return — ordinary page layout, no Google-imposed
+bounds. `google.maps.InfoWindow` is no longer used at all. Clicking a
+marker toggles selection (`Map.tsx` still owns `selectedPebbleId`
+state internally; clicking the same marker again deselects), and
+`SelectedPebbleDetails` gets an explicit "Close" button to replace the
+dismiss affordance `InfoWindow`'s own chrome used to provide. Shows a
+"Click a pin on the map to see its photos and details" placeholder
+when nothing's selected.
 
 ## Deferred (tracked separately, not part of this change)
 

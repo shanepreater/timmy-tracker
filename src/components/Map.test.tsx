@@ -22,20 +22,6 @@ vi.mock("@vis.gl/react-google-maps", () => ({
       {children ?? title}
     </button>
   ),
-  InfoWindow: ({
-    children,
-    onCloseClick,
-  }: {
-    children: ReactNode;
-    onCloseClick?: () => void;
-  }) => (
-    <div role="dialog">
-      {children}
-      <button type="button" onClick={onCloseClick}>
-        Close
-      </button>
-    </div>
-  ),
 }));
 
 const OFF_FLAGS: DynamicFeatureFlags = { map: false, submitPebble: false, pebblePhotos: false };
@@ -98,29 +84,44 @@ describe("Map", () => {
       vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID", "test-map-id");
     });
 
-    it("shows depositedBy and the date when a marker is clicked", () => {
+    it("shows a placeholder prompt in the details panel until a marker is clicked", () => {
       renderMap([pebble], { map: true });
 
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-      fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
-
-      const dialog = screen.getByRole("dialog");
-      expect(dialog).toHaveTextContent("Sarah");
-      expect(dialog).toHaveTextContent(formatPebbleDate(pebble.depositedAt));
+      expect(screen.getByRole("status")).toHaveTextContent(/click a pin/i);
     });
 
-    it("closes the info window when its close control is clicked", () => {
+    it("shows depositedBy and the date in the details panel below the map when a marker is clicked", () => {
       renderMap([pebble], { map: true });
 
       fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
 
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.getByText("Sarah")).toBeInTheDocument();
+      expect(screen.getByText(formatPebbleDate(pebble.depositedAt))).toBeInTheDocument();
+    });
+
+    it("clicking the same marker again deselects it", () => {
+      renderMap([pebble], { map: true });
+
+      const marker = screen.getByRole("button", { name: /Sarah/ });
+      fireEvent.click(marker);
+      expect(screen.getByText("Sarah")).toBeInTheDocument();
+
+      fireEvent.click(marker);
+
+      expect(screen.getByRole("status")).toHaveTextContent(/click a pin/i);
+    });
+
+    it("deselects when the details panel's Close button is clicked", () => {
+      renderMap([pebble], { map: true });
+
+      fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+      expect(screen.getByRole("status")).toHaveTextContent(/click a pin/i);
     });
 
-    it("renders a pebble photo in the info window when enabled", async () => {
+    it("renders a pebble photo in the details panel when enabled", async () => {
       renderMap([{ ...pebble, photoUrl: "https://blob.example/photo.webp" }], {
         map: true,
         pebblePhotos: true,
@@ -158,7 +159,7 @@ describe("Map", () => {
       expect(screen.getByRole("button", { name: "Next photo" })).toBeInTheDocument();
     });
 
-    it("shows the info window photo even for a pebble with only additional photos and no primary photo", async () => {
+    it("shows the details panel photo even for a pebble with only additional photos and no primary photo", async () => {
       renderMap(
         [{ ...pebble, photoUrl: null, additionalPhotoUrls: ["https://blob.example/extra-a.webp"] }],
         { map: true, pebblePhotos: true },
