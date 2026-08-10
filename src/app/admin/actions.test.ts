@@ -14,6 +14,7 @@ const movePebble = vi.fn();
 const deletePebble = vi.fn();
 const deletePebblePhoto = vi.fn();
 const processUploadedPebblePhoto = vi.fn();
+const processUploadedPebblePhotos = vi.fn();
 const deleteOrphanedPhotoUpload = vi.fn();
 const deleteAllOrphanedPhotoUploads = vi.fn();
 const getOrphanMinAgeMinutes = vi.fn();
@@ -21,6 +22,12 @@ const setOrphanMinAgeMinutes = vi.fn();
 const getDynamicFeatureFlags = vi.fn();
 const setDynamicFeatureFlag = vi.fn();
 const revalidatePath = vi.fn();
+const getMaxAdditionalPhotos = vi.fn();
+const setMaxAdditionalPhotos = vi.fn();
+const listAdditionalPhotos = vi.fn();
+const addAdditionalPhotos = vi.fn();
+const getAdditionalPhotoUrl = vi.fn();
+const deleteAdditionalPhotoRow = vi.fn();
 class FakePhotoValidationError extends Error {}
 
 vi.mock("@/lib/auth-guards", () => ({ requireAdmin }));
@@ -41,6 +48,7 @@ vi.mock("@/lib/pebbles", () => ({
 vi.mock("@/lib/pebble-photos", () => ({
   deletePebblePhoto,
   processUploadedPebblePhoto,
+  processUploadedPebblePhotos,
   PhotoValidationError: FakePhotoValidationError,
 }));
 vi.mock("@/lib/pebble-photo-orphans", () => ({
@@ -48,6 +56,14 @@ vi.mock("@/lib/pebble-photo-orphans", () => ({
   deleteAllOrphanedPhotoUploads,
   getOrphanMinAgeMinutes,
   setOrphanMinAgeMinutes,
+}));
+vi.mock("@/lib/pebble-additional-photos", () => ({
+  getMaxAdditionalPhotos: (...args: unknown[]) => getMaxAdditionalPhotos(...args),
+  setMaxAdditionalPhotos: (...args: unknown[]) => setMaxAdditionalPhotos(...args),
+  listAdditionalPhotos: (...args: unknown[]) => listAdditionalPhotos(...args),
+  addAdditionalPhotos: (...args: unknown[]) => addAdditionalPhotos(...args),
+  getAdditionalPhotoUrl: (...args: unknown[]) => getAdditionalPhotoUrl(...args),
+  deleteAdditionalPhotoRow: (...args: unknown[]) => deleteAdditionalPhotoRow(...args),
 }));
 vi.mock("@/lib/dynamic-feature-flags", () => ({
   getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
@@ -75,6 +91,9 @@ const {
   deleteAllOrphanedPhotoUploadsAction,
   updateOrphanMinAgeMinutesAction,
   updateFeatureFlagAction,
+  addAdditionalPebblePhotosAction,
+  removeAdditionalPebblePhotoAction,
+  updateMaxAdditionalPhotosAction,
 } = await import("./actions");
 
 const VALID_PEBBLE_FIELDS = {
@@ -107,6 +126,8 @@ beforeEach(() => {
   deletePebblePhoto.mockResolvedValue(undefined);
   processUploadedPebblePhoto.mockReset();
   processUploadedPebblePhoto.mockResolvedValue("https://blob.example/photo.webp");
+  processUploadedPebblePhotos.mockReset();
+  processUploadedPebblePhotos.mockResolvedValue([]);
   deleteOrphanedPhotoUpload.mockReset();
   deleteOrphanedPhotoUpload.mockResolvedValue(undefined);
   deleteAllOrphanedPhotoUploads.mockReset();
@@ -117,6 +138,14 @@ beforeEach(() => {
   getDynamicFeatureFlags.mockReset();
   getDynamicFeatureFlags.mockResolvedValue(PHOTOS_OFF);
   setDynamicFeatureFlag.mockReset();
+  getMaxAdditionalPhotos.mockReset();
+  getMaxAdditionalPhotos.mockResolvedValue(5);
+  setMaxAdditionalPhotos.mockReset();
+  listAdditionalPhotos.mockReset();
+  listAdditionalPhotos.mockResolvedValue([]);
+  addAdditionalPhotos.mockReset();
+  getAdditionalPhotoUrl.mockReset();
+  deleteAdditionalPhotoRow.mockReset();
   revalidatePath.mockReset();
 });
 
@@ -184,6 +213,15 @@ describe("admin actions require FEATURE_ADMIN", () => {
     );
     await expect(
       disabled.updateFeatureFlagAction("map", false, formData()),
+    ).rejects.toThrow("isn't enabled");
+    await expect(
+      disabled.addAdditionalPebblePhotosAction("p1", formData()),
+    ).rejects.toThrow("isn't enabled");
+    await expect(
+      disabled.removeAdditionalPebblePhotoAction("ph1", formData()),
+    ).rejects.toThrow("isn't enabled");
+    await expect(
+      disabled.updateMaxAdditionalPhotosAction(formData({ maxCount: "3" })),
     ).rejects.toThrow("isn't enabled");
 
     const addPebbleResult = await disabled.addPebbleAction(
@@ -281,7 +319,7 @@ describe("addPebbleAction", () => {
       longitude: 2.2945,
       depositedBy: "Sarah",
       depositedAt: new Date("2026-03-01"),
-    }, undefined);
+    }, undefined, undefined);
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/");
   });
@@ -307,6 +345,7 @@ describe("addPebbleAction", () => {
         depositedAt: new Date("2026-03-01"),
       },
       "https://blob.example/photo.webp",
+      undefined,
     );
   });
 
@@ -318,7 +357,7 @@ describe("addPebbleAction", () => {
 
     expect(result).toEqual({ status: "success" });
     expect(processUploadedPebblePhoto).not.toHaveBeenCalled();
-    expect(createPebbleByAdmin).toHaveBeenCalledWith(expect.anything(), undefined);
+    expect(createPebbleByAdmin).toHaveBeenCalledWith(expect.anything(), undefined, undefined);
   });
 
   it("returns a photo error when processing throws PhotoValidationError", async () => {
@@ -338,6 +377,40 @@ describe("addPebbleAction", () => {
     expect(result).toEqual({
       status: "error",
       errors: { photo: "We couldn't process that image. Try a different file." },
+    });
+    expect(createPebbleByAdmin).not.toHaveBeenCalled();
+  });
+
+  it("processes additional photos and passes them to createPebbleByAdmin", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    processUploadedPebblePhotos.mockResolvedValue(["https://blob.example/extra-a.webp"]);
+
+    const data = formData(VALID_PEBBLE_FIELDS);
+    data.append("additionalPhotoUrls", "https://blob.example/raw/extra-a.jpg");
+
+    const result = await addPebbleAction({ status: "idle" }, data);
+
+    expect(result).toEqual({ status: "success" });
+    expect(processUploadedPebblePhotos).toHaveBeenCalledWith(["https://blob.example/raw/extra-a.jpg"]);
+    expect(createPebbleByAdmin).toHaveBeenCalledWith(expect.anything(), undefined, [
+      "https://blob.example/extra-a.webp",
+    ]);
+  });
+
+  it("rejects when more additional photos are submitted than the configured max", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getMaxAdditionalPhotos.mockResolvedValue(0);
+
+    const data = formData(VALID_PEBBLE_FIELDS);
+    data.append("additionalPhotoUrls", "https://blob.example/raw/extra-a.jpg");
+
+    const result = await addPebbleAction({ status: "idle" }, data);
+
+    expect(result).toEqual({
+      status: "error",
+      errors: { photo: "You can add at most 0 additional photos." },
     });
     expect(createPebbleByAdmin).not.toHaveBeenCalled();
   });
@@ -467,6 +540,165 @@ describe("deletePebbleAction", () => {
 
     expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/photo.webp");
     expect(deletePebble).toHaveBeenCalledWith("p1");
+  });
+
+  it("deletes every additional photo's blob before deleting the pebble", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getPebblePhotoUrl.mockResolvedValue(null);
+    listAdditionalPhotos.mockResolvedValue([
+      { id: "ph1", url: "https://blob.example/extra-a.webp", position: 0 },
+      { id: "ph2", url: "https://blob.example/extra-b.webp", position: 1 },
+    ]);
+
+    await deletePebbleAction("p1", formData());
+
+    expect(listAdditionalPhotos).toHaveBeenCalledWith("p1");
+    expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/extra-a.webp");
+    expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/extra-b.webp");
+    expect(deletePebble).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("addAdditionalPebblePhotosAction", () => {
+  it("rejects when requireAdmin throws, without processing anything", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(
+      addAdditionalPebblePhotosAction("p1", formData()),
+    ).rejects.toThrow("Admin access required.");
+    expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    const data = formData();
+    data.append("additionalPhotoUrls", "https://blob.example/raw/a.jpg");
+
+    await expect(addAdditionalPebblePhotosAction("p1", data)).rejects.toThrow(
+      "Pebble photos aren't enabled.",
+    );
+    expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when no urls are submitted", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+
+    await addAdditionalPebblePhotosAction("p1", formData());
+
+    expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+    expect(addAdditionalPhotos).not.toHaveBeenCalled();
+  });
+
+  it("processes and attaches the given urls, capped to remaining room", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getMaxAdditionalPhotos.mockResolvedValue(5);
+    listAdditionalPhotos.mockResolvedValue([{ id: "ph1", url: "existing", position: 0 }]);
+    processUploadedPebblePhotos.mockResolvedValue(["https://blob.example/extra-a.webp"]);
+
+    const data = formData();
+    data.append("additionalPhotoUrls", "https://blob.example/raw/a.jpg");
+
+    await addAdditionalPebblePhotosAction("p1", data);
+
+    expect(processUploadedPebblePhotos).toHaveBeenCalledWith(["https://blob.example/raw/a.jpg"]);
+    expect(addAdditionalPhotos).toHaveBeenCalledWith("p1", ["https://blob.example/extra-a.webp"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("rejects when the submitted urls exceed the pebble's remaining room", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getMaxAdditionalPhotos.mockResolvedValue(1);
+    listAdditionalPhotos.mockResolvedValue([{ id: "ph1", url: "existing", position: 0 }]);
+
+    const data = formData();
+    data.append("additionalPhotoUrls", "https://blob.example/raw/a.jpg");
+
+    await expect(addAdditionalPebblePhotosAction("p1", data)).rejects.toThrow(
+      "You can add at most 0 more photo(s) to this pebble.",
+    );
+    expect(processUploadedPebblePhotos).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeAdditionalPebblePhotoAction", () => {
+  it("rejects when requireAdmin throws", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(removeAdditionalPebblePhotoAction("ph1", formData())).rejects.toThrow(
+      "Admin access required.",
+    );
+    expect(getAdditionalPhotoUrl).not.toHaveBeenCalled();
+  });
+
+  it("throws when pebble photos are disabled", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(removeAdditionalPebblePhotoAction("ph1", formData())).rejects.toThrow(
+      "Pebble photos aren't enabled.",
+    );
+  });
+
+  it("no-ops when the photo row no longer exists", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getAdditionalPhotoUrl.mockResolvedValue(null);
+
+    await removeAdditionalPebblePhotoAction("ph1", formData());
+
+    expect(deletePebblePhoto).not.toHaveBeenCalled();
+    expect(deleteAdditionalPhotoRow).not.toHaveBeenCalled();
+  });
+
+  it("deletes the blob then the DB row, and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+    getDynamicFeatureFlags.mockResolvedValue(PHOTOS_ON);
+    getAdditionalPhotoUrl.mockResolvedValue("https://blob.example/extra-a.webp");
+
+    await removeAdditionalPebblePhotoAction("ph1", formData());
+
+    expect(deletePebblePhoto).toHaveBeenCalledWith("https://blob.example/extra-a.webp");
+    expect(deleteAdditionalPhotoRow).toHaveBeenCalledWith("ph1");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+});
+
+describe("updateMaxAdditionalPhotosAction", () => {
+  it("rejects when requireAdmin throws", async () => {
+    requireAdmin.mockRejectedValue(new Error("Admin access required."));
+
+    await expect(
+      updateMaxAdditionalPhotosAction(formData({ maxCount: "3" })),
+    ).rejects.toThrow("Admin access required.");
+    expect(setMaxAdditionalPhotos).not.toHaveBeenCalled();
+  });
+
+  it("persists the new value and revalidates", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await updateMaxAdditionalPhotosAction(formData({ maxCount: "3" }));
+
+    expect(setMaxAdditionalPhotos).toHaveBeenCalledWith(3);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/submit");
+  });
+
+  it("rejects a negative or non-numeric value without persisting", async () => {
+    requireAdmin.mockResolvedValue({ email: "admin@example.com" });
+
+    await expect(
+      updateMaxAdditionalPhotosAction(formData({ maxCount: "-5" })),
+    ).rejects.toThrow("Enter a non-negative number of photos.");
+    await expect(
+      updateMaxAdditionalPhotosAction(formData({ maxCount: "abc" })),
+    ).rejects.toThrow("Enter a non-negative number of photos.");
+    expect(setMaxAdditionalPhotos).not.toHaveBeenCalled();
   });
 });
 

@@ -2,6 +2,7 @@ import { SubmitPebbleForm } from "@/components/SubmitPebbleForm";
 import { PageContainer } from "@/components/PageContainer";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
 import { getDynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
+import { getMaxAdditionalPhotos } from "@/lib/pebble-additional-photos";
 
 // Flags are DB-backed now (admin-toggleable without a redeploy) — this
 // needs to be read fresh per request, not baked in at build time. Same
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SubmitPage() {
   const flags = await getDynamicFeatureFlags();
+  const maxAdditionalPhotos = await getMaxAdditionalPhotos();
 
   if (!flags.submitPebble) {
     return (
@@ -29,7 +31,7 @@ export default async function SubmitPage() {
             when — an admin will review it before it appears on the map.
           </p>
         </div>
-        <SubmitPebbleForm />
+        <SubmitPebbleForm maxAdditionalPhotos={maxAdditionalPhotos} />
       </PageContainer>
     </FeatureFlagsProvider>
   );

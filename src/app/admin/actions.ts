@@ -22,6 +22,7 @@ import {
   PhotoValidationError,
   deletePebblePhoto,
   processUploadedPebblePhoto,
+  processUploadedPebblePhotos,
 } from "@/lib/pebble-photos";
 import {
   deleteAllOrphanedPhotoUploads,
@@ -29,6 +30,14 @@ import {
   getOrphanMinAgeMinutes,
   setOrphanMinAgeMinutes,
 } from "@/lib/pebble-photo-orphans";
+import {
+  addAdditionalPhotos,
+  deleteAdditionalPhotoRow,
+  getAdditionalPhotoUrl,
+  getMaxAdditionalPhotos,
+  listAdditionalPhotos,
+  setMaxAdditionalPhotos,
+} from "@/lib/pebble-additional-photos";
 import {
   validateSubmitPebbleInput,
   validateCoordinates,
@@ -57,6 +66,13 @@ async function assertPebblePhotosEnabled() {
 function getOptionalRawPhotoUrl(formData: FormData): string | null {
   const value = formData.get("rawPhotoUrl");
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Same idea as getOptionalRawPhotoUrl, but for the multi-value additional-photos field. */
+function getRawAdditionalPhotoUrls(formData: FormData): string[] {
+  return formData
+    .getAll("additionalPhotoUrls")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
 }
 
 export async function approveAccessRequestAction(requestId: string, _formData: FormData) {
@@ -128,22 +144,36 @@ export async function addPebbleAction(
   }
 
   let photoUrl: string | undefined;
+  let additionalPhotoUrls: string[] | undefined;
   const { pebblePhotos } = await getDynamicFeatureFlags();
   if (pebblePhotos) {
     const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
-    if (rawPhotoUrl) {
-      try {
+    const rawAdditionalPhotoUrls = getRawAdditionalPhotoUrls(formData);
+
+    const maxAdditionalPhotos = await getMaxAdditionalPhotos();
+    if (rawAdditionalPhotoUrls.length > maxAdditionalPhotos) {
+      return {
+        status: "error",
+        errors: { photo: `You can add at most ${maxAdditionalPhotos} additional photos.` },
+      };
+    }
+
+    try {
+      if (rawPhotoUrl) {
         photoUrl = await processUploadedPebblePhoto(rawPhotoUrl);
-      } catch (error) {
-        if (error instanceof PhotoValidationError) {
-          return { status: "error", errors: { photo: error.message } };
-        }
-        throw error;
       }
+      if (rawAdditionalPhotoUrls.length > 0) {
+        additionalPhotoUrls = await processUploadedPebblePhotos(rawAdditionalPhotoUrls);
+      }
+    } catch (error) {
+      if (error instanceof PhotoValidationError) {
+        return { status: "error", errors: { photo: error.message } };
+      }
+      throw error;
     }
   }
 
-  await createPebbleByAdmin(result.data, photoUrl);
+  await createPebbleByAdmin(result.data, photoUrl, additionalPhotoUrls);
   revalidatePath("/admin");
   revalidatePath("/");
   return { status: "success" };
@@ -190,12 +220,14 @@ export async function removePebblePhotoAction(id: string, _formData: FormData) {
 }
 
 /**
- * Permanently removes a pebble (pending or verified), and its photo
- * from Blob storage if it has one. No separate "remove photo first"
- * step required — same reasoning as removePebblePhotoAction's
- * Blob-delete-then-DB-update ordering (docs/design-pebble-photos.md):
- * a failure between the two steps here just leaves a deleted DB row,
- * not a dangling reference anything renders.
+ * Permanently removes a pebble (pending or verified), and every photo
+ * — primary and additional — from Blob storage. No separate
+ * "remove photos first" step required — same reasoning as
+ * removePebblePhotoAction's Blob-delete-then-DB-update ordering
+ * (docs/design-pebble-photos.md): a failure between these steps just
+ * leaves a deleted DB row, not a dangling reference anything renders.
+ * The additionalPhotos DB rows cascade on delete, but that only
+ * removes the rows — their Blob objects need deleting explicitly here.
  */
 export async function deletePebbleAction(id: string, _formData: FormData) {
   assertAdminFeatureEnabled();
@@ -205,10 +237,75 @@ export async function deletePebbleAction(id: string, _formData: FormData) {
   if (photoUrl) {
     await deletePebblePhoto(photoUrl);
   }
+
+  const additionalPhotos = await listAdditionalPhotos(id);
+  await Promise.all(additionalPhotos.map((photo) => deletePebblePhoto(photo.url)));
+
   await deletePebble(id);
 
   revalidatePath("/admin");
   revalidatePath("/");
+}
+
+/**
+ * Admin adds more photos to an already-existing pebble (on top of
+ * whatever it already has) — the "later" half of additional-photo
+ * scope, alongside adding some at creation time in addPebbleAction.
+ * Caps to the pebble's *remaining* room, not the full max. Plain
+ * bound-arg action (no useActionState wiring, matching
+ * updateOrphanMinAgeMinutesAction's precedent) — throws directly on an
+ * over-cap submission rather than adding new typed-error plumbing for
+ * an admin-only convenience action.
+ */
+export async function addAdditionalPebblePhotosAction(pebbleId: string, formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  await assertPebblePhotosEnabled();
+
+  const rawUrls = getRawAdditionalPhotoUrls(formData);
+  if (rawUrls.length === 0) return;
+
+  const [max, existing] = await Promise.all([getMaxAdditionalPhotos(), listAdditionalPhotos(pebbleId)]);
+  const room = Math.max(max - existing.length, 0);
+  if (rawUrls.length > room) {
+    throw new Error(`You can add at most ${room} more photo(s) to this pebble.`);
+  }
+
+  const processedUrls = await processUploadedPebblePhotos(rawUrls);
+  await addAdditionalPhotos(pebbleId, processedUrls);
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function removeAdditionalPebblePhotoAction(photoId: string, _formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+  await assertPebblePhotosEnabled();
+
+  const url = await getAdditionalPhotoUrl(photoId);
+  if (!url) return;
+
+  await deletePebblePhoto(url);
+  await deleteAdditionalPhotoRow(photoId);
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function updateMaxAdditionalPhotosAction(formData: FormData) {
+  assertAdminFeatureEnabled();
+  await requireAdmin();
+
+  const count = Number(formData.get("maxCount"));
+  if (!Number.isFinite(count) || count < 0) {
+    throw new Error("Enter a non-negative number of photos.");
+  }
+
+  await setMaxAdditionalPhotos(count);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/submit");
 }
 
 export async function deleteOrphanedPhotoUploadAction(url: string, _formData: FormData) {

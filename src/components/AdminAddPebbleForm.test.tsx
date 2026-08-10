@@ -23,10 +23,10 @@ vi.mock("@vis.gl/react-google-maps", () => ({
 
 const OFF_FLAGS: DynamicFeatureFlags = { map: false, submitPebble: false, pebblePhotos: false };
 
-function renderForm(flags: Partial<DynamicFeatureFlags> = {}) {
+function renderForm(flags: Partial<DynamicFeatureFlags> = {}, maxAdditionalPhotos = 5) {
   return render(
     <FeatureFlagsProvider flags={{ ...OFF_FLAGS, ...flags }}>
-      <AdminAddPebbleForm />
+      <AdminAddPebbleForm maxAdditionalPhotos={maxAdditionalPhotos} />
     </FeatureFlagsProvider>,
   );
 }
@@ -78,6 +78,43 @@ describe("AdminAddPebbleForm", () => {
     expect(screen.getByRole("button", { name: /add pebble/i })).toBeDisabled();
 
     resolveUpload!("https://blob.example/pebbles-raw/tim.jpg?download=1");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /add pebble/i })).not.toBeDisabled(),
+    );
+  });
+
+  it("shows the additional-photos field when photos are enabled and the max is above zero", () => {
+    renderForm({ pebblePhotos: true }, 3);
+
+    expect(screen.getByLabelText("Additional photos (optional, up to 3)")).toBeInTheDocument();
+  });
+
+  it("hides the additional-photos field when the configured max is zero", () => {
+    renderForm({ pebblePhotos: true }, 0);
+
+    expect(screen.queryByLabelText(/additional photos/i)).not.toBeInTheDocument();
+  });
+
+  it("disables submit while a selected additional photo is still uploading", async () => {
+    let resolveUpload: (url: string) => void;
+    uploadRawPebblePhoto.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveUpload = resolve;
+      }),
+    );
+    renderForm({ pebblePhotos: true }, 3);
+
+    fireEvent.change(screen.getByLabelText(/additional photos/i), {
+      target: {
+        files: [new File([new Uint8Array(32)], "extra.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    expect(await screen.findByText("Uploading photo…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add pebble/i })).toBeDisabled();
+
+    resolveUpload!("https://blob.example/pebbles-raw/extra.jpg");
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /add pebble/i })).not.toBeDisabled(),

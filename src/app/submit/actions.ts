@@ -3,7 +3,12 @@
 import { featureFlags } from "@/lib/feature-flags";
 import { getDynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 import { submitPebble } from "@/lib/pebbles";
-import { PhotoValidationError, processUploadedPebblePhoto } from "@/lib/pebble-photos";
+import {
+  PhotoValidationError,
+  processUploadedPebblePhoto,
+  processUploadedPebblePhotos,
+} from "@/lib/pebble-photos";
+import { getMaxAdditionalPhotos } from "@/lib/pebble-additional-photos";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import {
   validateSubmitPebbleInput,
@@ -25,6 +30,13 @@ export type SubmitPebbleState =
 function getOptionalRawPhotoUrl(formData: FormData): string | null {
   const value = formData.get("rawPhotoUrl");
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Same idea as getOptionalRawPhotoUrl, but for the multi-value additional-photos field. */
+function getRawAdditionalPhotoUrls(formData: FormData): string[] {
+  return formData
+    .getAll("additionalPhotoUrls")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
 }
 
 export async function submitPebbleAction(
@@ -74,20 +86,34 @@ export async function submitPebbleAction(
   }
 
   let photoUrl: string | undefined;
+  let additionalPhotoUrls: string[] | undefined;
   if (dynamicFlags.pebblePhotos) {
     const rawPhotoUrl = getOptionalRawPhotoUrl(formData);
-    if (rawPhotoUrl) {
-      try {
+    const rawAdditionalPhotoUrls = getRawAdditionalPhotoUrls(formData);
+
+    const maxAdditionalPhotos = await getMaxAdditionalPhotos();
+    if (rawAdditionalPhotoUrls.length > maxAdditionalPhotos) {
+      return {
+        status: "error",
+        errors: { photo: `You can add at most ${maxAdditionalPhotos} additional photos.` },
+      };
+    }
+
+    try {
+      if (rawPhotoUrl) {
         photoUrl = await processUploadedPebblePhoto(rawPhotoUrl);
-      } catch (error) {
-        if (error instanceof PhotoValidationError) {
-          return { status: "error", errors: { photo: error.message } };
-        }
-        throw error;
       }
+      if (rawAdditionalPhotoUrls.length > 0) {
+        additionalPhotoUrls = await processUploadedPebblePhotos(rawAdditionalPhotoUrls);
+      }
+    } catch (error) {
+      if (error instanceof PhotoValidationError) {
+        return { status: "error", errors: { photo: error.message } };
+      }
+      throw error;
     }
   }
 
-  await submitPebble(result.data, submitterEmail, photoUrl);
+  await submitPebble(result.data, submitterEmail, photoUrl, additionalPhotoUrls);
   return { status: "success" };
 }

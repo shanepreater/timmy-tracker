@@ -7,6 +7,7 @@ const listPendingAccessRequests = vi.fn();
 const listAllPebbles = vi.fn();
 const listOrphanedPhotoUploads = vi.fn();
 const getOrphanMinAgeMinutes = vi.fn();
+const getMaxAdditionalPhotos = vi.fn();
 const getDynamicFeatureFlags = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
@@ -20,6 +21,9 @@ vi.mock("@/lib/allowed-users", () => ({ listAllowedUsers }));
 vi.mock("@/lib/access-requests", () => ({ listPendingAccessRequests }));
 vi.mock("@/lib/pebbles", () => ({ listAllPebbles }));
 vi.mock("@/lib/pebble-photo-orphans", () => ({ listOrphanedPhotoUploads, getOrphanMinAgeMinutes }));
+vi.mock("@/lib/pebble-additional-photos", () => ({
+  getMaxAdditionalPhotos: (...args: unknown[]) => getMaxAdditionalPhotos(...args),
+}));
 vi.mock("@/lib/dynamic-feature-flags", () => ({
   getDynamicFeatureFlags: (...args: unknown[]) => getDynamicFeatureFlags(...args),
 }));
@@ -39,6 +43,9 @@ vi.mock("@/components/ManageFeatureFlags", () => ({
 vi.mock("@/components/ManageOrphanDelay", () => ({
   ManageOrphanDelay: () => <div data-testid="manage-orphan-delay" />,
 }));
+vi.mock("@/components/ManageMaxAdditionalPhotos", () => ({
+  ManageMaxAdditionalPhotos: () => <div data-testid="manage-max-additional-photos" />,
+}));
 
 const PHOTOS_OFF = { map: false, submitPebble: false, pebblePhotos: false };
 const PHOTOS_ON = { map: false, submitPebble: false, pebblePhotos: true };
@@ -52,6 +59,8 @@ beforeEach(() => {
   listOrphanedPhotoUploads.mockResolvedValue([]);
   getOrphanMinAgeMinutes.mockReset();
   getOrphanMinAgeMinutes.mockResolvedValue(15);
+  getMaxAdditionalPhotos.mockReset();
+  getMaxAdditionalPhotos.mockResolvedValue(5);
   getDynamicFeatureFlags.mockReset();
   getDynamicFeatureFlags.mockResolvedValue(PHOTOS_OFF);
   notFound.mockClear();
@@ -169,6 +178,7 @@ describe("AdminPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: /^settings$/i })).toBeInTheDocument();
     expect(screen.getByTestId("manage-feature-flags")).toBeInTheDocument();
     expect(screen.getByTestId("manage-orphan-delay")).toBeInTheDocument();
+    expect(screen.getByTestId("manage-max-additional-photos")).toBeInTheDocument();
   });
 
   it("shows tab navigation to switch between sections", async () => {

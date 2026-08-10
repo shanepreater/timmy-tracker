@@ -15,7 +15,7 @@ vi.mock("sharp", () => ({
   default: (...args: unknown[]) => sharp(...args),
 }));
 
-const { processUploadedPebblePhoto, deletePebblePhoto, PhotoValidationError } =
+const { processUploadedPebblePhoto, processUploadedPebblePhotos, deletePebblePhoto, PhotoValidationError } =
   await import("./pebble-photos");
 
 const RAW_URL = "https://blob.example/pebbles-raw/1700000000000-aaaaaaaa-tim-photo.jpg";
@@ -166,6 +166,75 @@ describe("processUploadedPebblePhoto", () => {
     const url = await processUploadedPebblePhoto(RAW_URL);
 
     expect(url).toBe("https://blob.example/pebbles/photo.webp");
+  });
+});
+
+describe("processUploadedPebblePhotos", () => {
+  const RAW_URL_A = "https://blob.example/pebbles-raw/a.jpg";
+  const RAW_URL_B = "https://blob.example/pebbles-raw/b.jpg";
+
+  beforeEach(() => {
+    put.mockReset();
+    del.mockReset();
+    get.mockReset();
+    sharp.mockReset();
+    del.mockResolvedValue(undefined);
+    get.mockImplementation((url: string) => Promise.resolve(rawGetResult(new TextEncoder().encode(url))));
+    put.mockImplementation((path: string) =>
+      Promise.resolve({ url: `https://blob.example/${path}`, downloadUrl: `https://blob.example/${path}` }),
+    );
+  });
+
+  it("processes every url concurrently and returns each processed url", async () => {
+    sharp.mockImplementation(() => ({
+      rotate: () => ({
+        resize: () => ({ webp: () => ({ toBuffer: () => Promise.resolve(Buffer.from("processed")) }) }),
+      }),
+    }));
+
+    const urls = await processUploadedPebblePhotos([RAW_URL_A, RAW_URL_B]);
+
+    expect(urls).toHaveLength(2);
+    expect(urls.every((url) => url.startsWith("https://blob.example/pebbles/"))).toBe(true);
+    // Both raw intermediates cleaned up.
+    expect(del).toHaveBeenCalledWith(RAW_URL_A);
+    expect(del).toHaveBeenCalledWith(RAW_URL_B);
+  });
+
+  it("returns an empty array for an empty batch, without touching Blob", async () => {
+    expect(await processUploadedPebblePhotos([])).toEqual([]);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("cleans up the processed blobs from urls that already succeeded when one url in the batch fails, then rethrows", async () => {
+    // sharp's buffer is exactly the raw bytes fetched for that url (see the
+    // get mock above), so branching on its content identifies which url is
+    // mid-flight without relying on any assumption about call ordering
+    // across the concurrently-running processUploadedPebblePhoto calls.
+    sharp.mockImplementation((buffer: Buffer) => ({
+      rotate: () => ({
+        resize: () => ({
+          webp: () => ({
+            toBuffer: () =>
+              buffer.toString() === RAW_URL_B
+                ? Promise.reject(new Error("bad image"))
+                : Promise.resolve(Buffer.from("processed")),
+          }),
+        }),
+      }),
+    }));
+
+    await expect(processUploadedPebblePhotos([RAW_URL_A, RAW_URL_B])).rejects.toThrow(
+      "We couldn't process that image. Try a different file.",
+    );
+
+    // A succeeded and got its raw intermediate cleaned up as usual...
+    expect(del).toHaveBeenCalledWith(RAW_URL_A);
+    // ...but since the batch as a whole failed, A's already-processed blob
+    // is also deleted rather than left behind as an orphan.
+    expect(del).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/blob\.example\/pebbles\//));
+    // B never got far enough to attempt its own raw cleanup.
+    expect(del).not.toHaveBeenCalledWith(RAW_URL_B);
   });
 });
 

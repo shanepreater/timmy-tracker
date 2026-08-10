@@ -47,11 +47,12 @@ describe("getVerifiedPebbles", () => {
         depositedBy: true,
         depositedAt: true,
         photoUrl: true,
+        additionalPhotos: { orderBy: { position: "asc" }, select: { url: true } },
       },
     });
   });
 
-  it("returns whatever Prisma resolves", async () => {
+  it("returns an empty additionalPhotoUrls when there are none", async () => {
     const pebble = {
       id: "p1",
       latitude: 1,
@@ -59,10 +60,21 @@ describe("getVerifiedPebbles", () => {
       depositedBy: "Someone",
       depositedAt: new Date("2026-01-01"),
       photoUrl: null,
+      additionalPhotos: [],
     };
     findMany.mockResolvedValue([pebble]);
 
-    await expect(getVerifiedPebbles()).resolves.toEqual([pebble]);
+    await expect(getVerifiedPebbles()).resolves.toEqual([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        photoUrl: null,
+        additionalPhotoUrls: [],
+      },
+    ]);
   });
 
   it("maps non-null photo URLs to app-served display URLs", async () => {
@@ -74,6 +86,7 @@ describe("getVerifiedPebbles", () => {
         depositedBy: "Someone",
         depositedAt: new Date("2026-01-01"),
         photoUrl: "https://blob.example/photo.webp",
+        additionalPhotos: [],
       },
     ]);
 
@@ -85,7 +98,31 @@ describe("getVerifiedPebbles", () => {
         depositedBy: "Someone",
         depositedAt: new Date("2026-01-01"),
         photoUrl: "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fphoto.webp",
+        additionalPhotoUrls: [],
       },
+    ]);
+  });
+
+  it("maps additional photo URLs to app-served display URLs, in order", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        photoUrl: null,
+        additionalPhotos: [
+          { url: "https://blob.example/a.webp" },
+          { url: "https://blob.example/b.webp" },
+        ],
+      },
+    ]);
+
+    const result = await getVerifiedPebbles();
+    expect(result[0]?.additionalPhotoUrls).toEqual([
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fa.webp",
+      "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fb.webp",
     ]);
   });
 });
@@ -113,6 +150,7 @@ describe("submitPebble", () => {
         submitterEmail: undefined,
         depositedAt: new Date("2026-03-01"),
         status: "PENDING",
+        additionalPhotos: undefined,
       },
     });
   });
@@ -134,6 +172,51 @@ describe("submitPebble", () => {
       }),
     );
   });
+
+  it("writes additional photos as a nested create, in order", async () => {
+    await submitPebble(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      undefined,
+      undefined,
+      ["url-a", "url-b"],
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          additionalPhotos: {
+            create: [
+              { url: "url-a", position: 0 },
+              { url: "url-b", position: 1 },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("omits the nested write entirely for an empty additional-photos array", async () => {
+    await submitPebble(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      undefined,
+      undefined,
+      [],
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ additionalPhotos: undefined }) }),
+    );
+  });
 });
 
 describe("listAllPebbles", () => {
@@ -141,13 +224,14 @@ describe("listAllPebbles", () => {
     findMany.mockReset();
   });
 
-  it("queries every pebble, pending first then newest-created", async () => {
+  it("queries every pebble, pending first then newest-created, including additional photos", async () => {
     findMany.mockResolvedValue([]);
 
     await listAllPebbles();
 
     expect(findMany).toHaveBeenCalledWith({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      include: { additionalPhotos: { orderBy: { position: "asc" } } },
     });
   });
 
@@ -161,11 +245,32 @@ describe("listAllPebbles", () => {
         depositedAt: new Date("2026-01-01"),
         status: "VERIFIED",
         photoUrl: "https://blob.example/photo.webp",
+        additionalPhotos: [],
       },
     ]);
 
     const result = await listAllPebbles();
     expect(result[0]?.photoUrl).toBe("/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fphoto.webp");
+  });
+
+  it("maps each additional photo's URL to an app-served display URL, keeping id/position", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "p1",
+        latitude: 1,
+        longitude: 2,
+        depositedBy: "Someone",
+        depositedAt: new Date("2026-01-01"),
+        status: "VERIFIED",
+        photoUrl: null,
+        additionalPhotos: [{ id: "ph1", url: "https://blob.example/a.webp", position: 0 }],
+      },
+    ]);
+
+    const result = await listAllPebbles();
+    expect(result[0]?.additionalPhotos).toEqual([
+      { id: "ph1", url: "/api/pebble-photo?url=https%3A%2F%2Fblob.example%2Fa.webp", position: 0 },
+    ]);
   });
 });
 
@@ -193,6 +298,7 @@ describe("createPebbleByAdmin", () => {
         depositedAt: new Date("2026-03-01"),
         status: "VERIFIED",
         verifiedAt: expect.any(Date),
+        additionalPhotos: undefined,
       },
     });
   });
@@ -211,6 +317,32 @@ describe("createPebbleByAdmin", () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ photoUrl: "https://blob.example/photo.webp" }),
+      }),
+    );
+  });
+
+  it("writes additional photos as a nested create, in order", async () => {
+    await createPebbleByAdmin(
+      {
+        latitude: 48.8584,
+        longitude: 2.2945,
+        depositedBy: "Sarah",
+        depositedAt: new Date("2026-03-01"),
+      },
+      "https://blob.example/photo.webp",
+      ["url-a", "url-b"],
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          additionalPhotos: {
+            create: [
+              { url: "url-a", position: 0 },
+              { url: "url-b", position: 1 },
+            ],
+          },
+        }),
       }),
     );
   });
