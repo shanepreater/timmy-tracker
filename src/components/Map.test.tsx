@@ -90,6 +90,7 @@ describe("Map", () => {
       depositedBy: "Sarah",
       depositedAt: new Date("2026-03-01"),
       photoUrl: null,
+      additionalPhotoUrls: [],
     };
 
     beforeEach(() => {
@@ -137,6 +138,45 @@ describe("Map", () => {
       });
 
       expect(await screen.findByRole("img", { name: "Marker photo for Sarah" })).toBeInTheDocument();
+    });
+
+    it("shows a carousel with next/prev controls when there's a primary photo plus additional ones", async () => {
+      renderMap(
+        [
+          {
+            ...pebble,
+            photoUrl: "https://blob.example/photo.webp",
+            additionalPhotoUrls: ["https://blob.example/extra-a.webp"],
+          },
+        ],
+        { map: true, pebblePhotos: true },
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
+
+      expect(await screen.findByText("1 / 2")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next photo" })).toBeInTheDocument();
+    });
+
+    it("shows the info window photo even for a pebble with only additional photos and no primary photo", async () => {
+      renderMap(
+        [{ ...pebble, photoUrl: null, additionalPhotoUrls: ["https://blob.example/extra-a.webp"] }],
+        { map: true, pebblePhotos: true },
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sarah/ }));
+
+      expect(await screen.findByRole("img", { name: "Photo for Sarah" })).toBeInTheDocument();
+    });
+
+    it("still renders a plain, photo-less marker for a pebble with only additional photos (marker stays primary-only)", () => {
+      renderMap(
+        [{ ...pebble, photoUrl: null, additionalPhotoUrls: ["https://blob.example/extra-a.webp"] }],
+        { map: true, pebblePhotos: true },
+      );
+
+      expect(screen.queryByRole("img", { name: /marker photo/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Sarah/ })).toBeInTheDocument();
     });
   });
 });
