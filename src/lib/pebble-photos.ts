@@ -78,7 +78,7 @@ export async function processUploadedPebblePhoto(rawUrl: string): Promise<string
 
   let output: Buffer;
   try {
-    output = await sharp(input)
+    const processed = await sharp(input)
       .rotate()
       .resize({
         width: MAX_IMAGE_DIMENSION,
@@ -88,6 +88,16 @@ export async function processUploadedPebblePhoto(rawUrl: string): Promise<string
       })
       .webp({ quality: OUTPUT_IMAGE_QUALITY })
       .toBuffer();
+    // sharp's native bindings can hand back a Buffer view over a
+    // SharedArrayBuffer (its worker-thread pool transfers memory this
+    // way). fetch() rejects a SharedArrayBuffer-backed body outright
+    // ("TypeError: ArrayBuffer: SharedArrayBuffer is not allowed"),
+    // which put() below hits — reproduces in Vercel's production
+    // runtime, not local `next dev` (different Node worker/isolate
+    // behavior). Buffer.from(buffer) copies into a fresh, plain
+    // allocation, guaranteed not shared, before it's ever used as a
+    // request body.
+    output = Buffer.from(processed);
   } catch {
     throw new PhotoValidationError("We couldn't process that image. Try a different file.");
   }
