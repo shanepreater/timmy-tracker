@@ -72,6 +72,24 @@ describe("processUploadedPebblePhoto", () => {
     del.mockResolvedValue(undefined);
   });
 
+  it("uploads a copy of sharp's output buffer, not the same reference", async () => {
+    // Regression test: sharp's native bindings can hand back a Buffer
+    // view over a SharedArrayBuffer (its worker-thread pool transfers
+    // memory this way). fetch() rejects a SharedArrayBuffer-backed
+    // body outright ("TypeError: ArrayBuffer: SharedArrayBuffer is not
+    // allowed") — reproduced in production (Vercel's runtime), not
+    // local `next dev`. put() must receive a defensively-copied
+    // buffer, never sharp's own output object directly.
+    const sharpOutput = Buffer.from("processed");
+    toBuffer.mockResolvedValue(sharpOutput);
+
+    await processUploadedPebblePhoto(RAW_URL);
+
+    const uploadedBuffer = put.mock.calls[0][1];
+    expect(uploadedBuffer).toEqual(sharpOutput);
+    expect(uploadedBuffer).not.toBe(sharpOutput);
+  });
+
   it("fetches the raw upload, re-encodes to webp, uploads publicly, and deletes the raw upload", async () => {
     const url = await processUploadedPebblePhoto(RAW_URL);
 
