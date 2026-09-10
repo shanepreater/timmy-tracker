@@ -11,6 +11,10 @@ import {
 import { getMaxAdditionalPhotos } from "@/lib/pebble-additional-photos";
 import { requireAllowedUser, UnauthorizedError } from "@/lib/auth-guards";
 import {
+  getOptionalRawPhotoUrl,
+  getRawAdditionalPhotoUrls,
+} from "@/lib/form-helpers";
+import {
   validateSubmitPebbleInput,
   type SubmitPebbleFormErrors,
 } from "@/lib/pebble-validation";
@@ -19,25 +23,6 @@ export type SubmitPebbleState =
   | { status: "idle" }
   | { status: "error"; errors: SubmitPebbleFormErrors }
   | { status: "success" };
-
-/**
- * The photo itself was already uploaded straight to Blob by
- * PebblePhotoField before this action ever ran — this reads the
- * resulting raw URL, not a File. See pebble-photos.ts's module
- * comment for why (Vercel Functions cap Server Action request bodies
- * at 4.5 MB, well under the 8 MB photo limit).
- */
-function getOptionalRawPhotoUrl(formData: FormData): string | null {
-  const value = formData.get("rawPhotoUrl");
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/** Same idea as getOptionalRawPhotoUrl, but for the multi-value additional-photos field. */
-function getRawAdditionalPhotoUrls(formData: FormData): string[] {
-  return formData
-    .getAll("additionalPhotoUrls")
-    .filter((value): value is string => typeof value === "string" && value.length > 0);
-}
 
 export async function submitPebbleAction(
   _prevState: SubmitPebbleState,
