@@ -43,6 +43,10 @@ import {
   validateCoordinates,
   type SubmitPebbleFormErrors,
 } from "@/lib/pebble-validation";
+import {
+  getOptionalRawPhotoUrl,
+  getRawAdditionalPhotoUrls,
+} from "@/lib/form-helpers";
 
 /**
  * FEATURE_ADMIN gates /admin's existence in the UI (notFound() when
@@ -61,18 +65,6 @@ async function assertPebblePhotosEnabled() {
   if (!pebblePhotos) {
     throw new Error("Pebble photos aren't enabled.");
   }
-}
-
-function getOptionalRawPhotoUrl(formData: FormData): string | null {
-  const value = formData.get("rawPhotoUrl");
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/** Same idea as getOptionalRawPhotoUrl, but for the multi-value additional-photos field. */
-function getRawAdditionalPhotoUrls(formData: FormData): string[] {
-  return formData
-    .getAll("additionalPhotoUrls")
-    .filter((value): value is string => typeof value === "string" && value.length > 0);
 }
 
 export async function approveAccessRequestAction(requestId: string, _formData: FormData) {
