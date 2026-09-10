@@ -46,5 +46,9 @@ export function PageContainer({
     .filter(Boolean)
     .join(" ");
 
-  return <main className={classes}>{children}</main>;
+  return (
+    <main id="main-content" tabIndex={-1} className={classes}>
+      {children}
+    </main>
+  );
 }

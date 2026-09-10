@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { submitPebbleAction, type SubmitPebbleState } from "@/app/submit/actions";
 import { PlaceLookup, type ResolvedPlace } from "@/components/PlaceLookup";
@@ -25,16 +25,29 @@ export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps)
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [additionalPhotosUploading, setAdditionalPhotosUploading] = useState(false);
+  const successRef = useRef<HTMLParagraphElement>(null);
+  const uid = useId();
+
+  // Focus the success message so screen readers announce it (WCAG 3.3.1).
+  useEffect(() => {
+    if (state.status === "success") {
+      successRef.current?.focus();
+    }
+  }, [state.status]);
 
   if (state.status === "success") {
     return (
-      <p role="status" className="text-lg">
+      <p ref={successRef} tabIndex={-1} role="status" className="text-lg">
         Thank you — your pebble has been submitted and is awaiting review.
       </p>
     );
   }
 
   const errors = state.status === "error" ? state.errors : {};
+  const latitudeId = `${uid}-latitude-error`;
+  const longitudeId = `${uid}-longitude-error`;
+  const depositedById = `${uid}-depositedBy-error`;
+  const depositedAtId = `${uid}-depositedAt-error`;
 
   function handleResolved(place: ResolvedPlace) {
     setLatitude(String(place.latitude));
@@ -65,13 +78,15 @@ export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps)
           required
           className="input"
           value={latitude}
+          aria-invalid={!!errors.latitude}
+          aria-describedby={errors.latitude ? latitudeId : undefined}
           onChange={(event) => {
             setLatitude(event.target.value);
             setResolvedAddress(null);
           }}
         />
         {errors.latitude && (
-          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+          <span id={latitudeId} role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
             {errors.latitude}
           </span>
         )}
@@ -86,13 +101,15 @@ export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps)
           required
           className="input"
           value={longitude}
+          aria-invalid={!!errors.longitude}
+          aria-describedby={errors.longitude ? longitudeId : undefined}
           onChange={(event) => {
             setLongitude(event.target.value);
             setResolvedAddress(null);
           }}
         />
         {errors.longitude && (
-          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+          <span id={longitudeId} role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
             {errors.longitude}
           </span>
         )}
@@ -100,9 +117,12 @@ export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps)
 
       <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Deposited by
-        <input name="depositedBy" type="text" required className="input" />
+        <input name="depositedBy" type="text" required className="input"
+          aria-invalid={!!errors.depositedBy}
+          aria-describedby={errors.depositedBy ? depositedById : undefined}
+        />
         {errors.depositedBy && (
-          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+          <span id={depositedById} role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
             {errors.depositedBy}
           </span>
         )}
@@ -110,9 +130,12 @@ export function SubmitPebbleForm({ maxAdditionalPhotos }: SubmitPebbleFormProps)
 
       <label className="flex flex-col gap-1 text-sm font-medium text-stone-700 dark:text-stone-300">
         Date deposited
-        <input name="depositedAt" type="date" required className="input" />
+        <input name="depositedAt" type="date" required className="input"
+          aria-invalid={!!errors.depositedAt}
+          aria-describedby={errors.depositedAt ? depositedAtId : undefined}
+        />
         {errors.depositedAt && (
-          <span role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
+          <span id={depositedAtId} role="alert" className="text-sm font-normal text-red-600 dark:text-red-400">
             {errors.depositedAt}
           </span>
         )}
