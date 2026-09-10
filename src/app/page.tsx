@@ -1,4 +1,4 @@
-import { Map } from "@/components/Map";
+import dynamicImport from "next/dynamic";
 import { ButtonLink } from "@/components/ButtonLink";
 import { PageContainer } from "@/components/PageContainer";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
@@ -9,6 +9,23 @@ import { getVerifiedPebbles } from "@/lib/pebbles";
 // page shouldn't be statically cached at build time (and a build with no
 // DATABASE_URL, e.g. before local Postgres is set up, still succeeds).
 export const dynamic = "force-dynamic";
+
+const MapPlaceholder = () => (
+  <div
+    role="status"
+    className="flex w-full items-center justify-center rounded-lg border border-dashed border-stone-300 text-stone-500 dark:border-stone-700 dark:text-stone-400"
+    style={{ height: "70vh", minHeight: "28rem", borderRadius: "0.5rem" }}
+  >
+    Map coming soon.
+  </div>
+);
+
+const Map = dynamicImport(
+  () => import("@/components/Map").then((mod) => mod.Map),
+  {
+    loading: () => <MapPlaceholder />,
+  }
+);
 
 export default async function Home() {
   const flags = await getDynamicFeatureFlags();
