@@ -68,7 +68,11 @@ describe("AdditionalPebblePhotosField", () => {
         ["https://blob.example/pebbles-raw/a.jpg", "https://blob.example/pebbles-raw/b.jpg"].sort(),
       ),
     );
-    expect(onUploadingChange).toHaveBeenLastCalledWith(false);
+
+    // The onUploadingChange(false) call runs in a useEffect after the
+    // render commits — wait for it rather than assuming it has fired by
+    // the time the hidden URLs appear in the DOM.
+    await waitFor(() => expect(onUploadingChange).toHaveBeenLastCalledWith(false));
   });
 
   it("accumulates slots across repeated selections instead of replacing them", async () => {
