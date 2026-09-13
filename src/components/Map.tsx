@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { useFeatureFlags } from "@/components/FeatureFlagsProvider";
 import { formatPebbleDate, type VerifiedPebble } from "@/lib/pebbles";
+import { MapPlaceholder } from "@/components/MapPlaceholder";
 import { PebblePhoto } from "@/components/PebblePhoto";
 import { PebblePhotoCarousel } from "@/components/PebblePhotoCarousel";
 
@@ -35,14 +36,7 @@ export function Map({ pebbles }: MapProps) {
   const [selectedPebbleId, setSelectedPebbleId] = useState<string | null>(null);
 
   if (!flags.map || !apiKey || !mapId) {
-    return (
-      <div
-        role="status"
-        className="flex h-96 w-full items-center justify-center rounded-lg border border-dashed border-stone-300 text-stone-500 dark:border-stone-700 dark:text-stone-400"
-      >
-        Map coming soon.
-      </div>
-    );
+    return <MapPlaceholder />;
   }
 
   const selectedPebble = pebbles.find((pebble) => pebble.id === selectedPebbleId) ?? null;

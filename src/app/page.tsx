@@ -1,7 +1,8 @@
-import { Map } from "@/components/Map";
+import dynamicImport from "next/dynamic";
 import { ButtonLink } from "@/components/ButtonLink";
 import { PageContainer } from "@/components/PageContainer";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
+import { MapPlaceholder } from "@/components/MapPlaceholder";
 import { getDynamicFeatureFlags } from "@/lib/dynamic-feature-flags";
 import { getVerifiedPebbles } from "@/lib/pebbles";
 
@@ -9,6 +10,13 @@ import { getVerifiedPebbles } from "@/lib/pebbles";
 // page shouldn't be statically cached at build time (and a build with no
 // DATABASE_URL, e.g. before local Postgres is set up, still succeeds).
 export const dynamic = "force-dynamic";
+
+const Map = dynamicImport(
+  () => import("@/components/Map").then((mod) => mod.Map),
+  {
+    loading: () => <MapPlaceholder />,
+  }
+);
 
 export default async function Home() {
   const flags = await getDynamicFeatureFlags();
