@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { Button } from "@/components/Button";
 
 export default function Error({
   error,
@@ -9,8 +10,6 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const [showDigest, setShowDigest] = useState(false);
-
   useEffect(() => {
     // Log error to console in development
     if (process.env.NODE_ENV === "development") {
@@ -19,17 +18,18 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="min-h-screen bg-stone-50 flex items-center justify-center px-4 py-8">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md mx-auto text-center space-y-6">
         {/* Error icon */}
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-full bg-stone-200 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-stone-500"
+              className="w-8 h-8 text-stone-500 dark:text-stone-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -41,40 +41,28 @@ export default function Error({
         </div>
 
         {/* Message */}
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-stone-800">
+        <div className="space-y-2" role="alert">
+          <h1 className="text-2xl font-bold text-foreground">
             Something went wrong
           </h1>
-          <p className="text-stone-600">
+          <p className="text-stone-600 dark:text-stone-400">
             We&apos;re sorry, but something unexpected happened. Please try again or contact support if the problem persists.
           </p>
         </div>
 
         {/* Retry button */}
-        <button
-          onClick={() => reset()}
-          className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-stone-800 text-white font-medium hover:bg-stone-700 transition-colors focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2"
-        >
-          Try again
-        </button>
+        <Button onClick={() => reset()}>Try again</Button>
 
         {/* Error digest (collapsible, for support) */}
         {error.digest && (
-          <div className="pt-4 border-t border-stone-200">
-            <button
-              onClick={() => setShowDigest(!showDigest)}
-              className="text-sm text-stone-500 hover:text-stone-700 underline focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 rounded"
-            >
-              {showDigest ? "Hide" : "Show"} error details
-            </button>
-            {showDigest && (
-              <div className="mt-3 p-3 bg-stone-100 rounded-lg border border-stone-200">
-                <p className="text-xs font-mono text-stone-600 break-all">
-                  Error ID: {error.digest}
-                </p>
-              </div>
-            )}
-          </div>
+          <details className="pt-4 border-t border-stone-200 dark:border-stone-700 text-left">
+            <summary className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-sm">
+              Show error details
+            </summary>
+            <p className="mt-3 p-3 bg-stone-100 dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 text-xs font-mono text-stone-600 dark:text-stone-400 break-all">
+              Error ID: {error.digest}
+            </p>
+          </details>
         )}
       </div>
     </main>
