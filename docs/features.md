@@ -395,6 +395,37 @@ Acceptance criteria:
 * Recovery checklist includes data verification steps for pebbles,
   photos, and access control records.
 
+### [x] Security headers
+Design brief:
+Add standard response security headers (HSTS, X-Frame-Options,
+X-Content-Type-Options, Referrer-Policy, CSP) behind `FEATURE_SECURITY_HEADERS`
+(see `.env.example`), following up on the gap flagged in
+`docs/audit/security.md`.
+
+* [x] `next.config.ts`'s `headers()` adds the headers above only when
+  `FEATURE_SECURITY_HEADERS=true`, so the flag defaults off and the live
+  server stays backwards-compatible until it's promoted.
+* [x] CSP's `connect-src` allows `https://blob.vercel-storage.com` — the
+  raw pebble-photo upload (`src/lib/pebble-photo-client-upload.ts`) PUTs
+  directly from the browser to Blob storage to bypass the 4.5MB Server
+  Action body cap, so without this the CSP silently breaks every photo
+  upload on `/submit` and `/admin`.
+* [x] CSP's `worker-src` allows `blob:`, required for Google Maps' vector
+  tile/render worker whenever `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` is set.
+* [x] `src/app/error.tsx` (route-segment errors) and `src/app/global-error.tsx`
+  (root-layout errors — e.g. `AuthGate`'s `auth()`/Prisma lookup throwing,
+  which `error.tsx` alone can't catch) both render a friendly retry screen.
+* [x] `src/app/loading.tsx` gives routes a skeleton fallback instead of a
+  blank screen during code-split/data-fetch suspense.
+
+Deferred (bigger than this fix, tracked here for a future session):
+* The security audit recommended shipping CSP as
+  `Content-Security-Policy-Report-Only` with a `report-uri` first, to catch
+  allowlist gaps like the `connect-src` one above from real traffic before
+  enforcing. That needs a report-collection endpoint/sink, which is a
+  separate design pass — see also "Error monitoring and alerting" below,
+  which such a report endpoint would likely share infrastructure with.
+
 ### [ ] Rate limiting and abuse protection
 Design brief:
 Protect write endpoints from accidental or malicious bursts while
