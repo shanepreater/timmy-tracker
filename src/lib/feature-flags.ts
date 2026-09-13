@@ -12,6 +12,10 @@
 export const featureFlags = {
   admin: process.env.FEATURE_ADMIN === "true",
   authGate: process.env.FEATURE_AUTH_GATE === "true",
+  // Read directly by next.config.ts too (headers() gates on the same
+  // env var) — kept here as well so it's documented alongside the
+  // other flags and covered by this file's tests.
+  securityHeaders: process.env.FEATURE_SECURITY_HEADERS === "true",
 } as const;
 
 export type FeatureFlags = typeof featureFlags;
